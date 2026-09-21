@@ -19,7 +19,7 @@ export default async function LoginPage({
         {error === "link" && (
           <p className="text-sm text-destructive">
             That link didn&apos;t work here (open it in the same browser you requested it from).
-            Request a new one, or use the 6-digit code instead.
+            Request a new one, or use the code from the email instead.
           </p>
         )}
         <LoginForm />

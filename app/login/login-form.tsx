@@ -68,9 +68,10 @@ export function LoginForm() {
     <form onSubmit={verifyCode} className="space-y-4">
       <p className="text-sm text-muted-foreground">
         Check <span className="text-foreground">{email}</span>. Click the link, or enter the code from the email.
+        Don&apos;t see it? Check your spam or junk folder.
       </p>
       <div className="space-y-2">
-        <Label htmlFor="code">6-digit code</Label>
+        <Label htmlFor="code">Code from the email</Label>
         <Input
           id="code"
           inputMode="numeric"
