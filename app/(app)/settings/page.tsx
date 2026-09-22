@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/server/integrations";
 import { buttonVariants } from "@/components/ui/button";
 import { DisconnectButton } from "@/components/settings/disconnect-button";
+import { DigestForm } from "@/components/settings/digest-form";
 import { cn } from "@/lib/utils";
 
 // Free-tier Supabase Storage is ~1 GB total (shared with everything else in the project).
@@ -27,6 +28,9 @@ export default async function SettingsPage({
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   const google = auth.user ? await getIntegration(auth.user.id, "google") : null;
+  const { data: settings } = auth.user
+    ? await supabase.from("settings").select("digest_enabled, digest_email").eq("user_id", auth.user.id).single()
+    : { data: null };
 
   const statusMessage = googleStatus ? GOOGLE_STATUS_MESSAGES[googleStatus] : undefined;
 
@@ -92,7 +96,18 @@ export default async function SettingsPage({
         )}
       </div>
 
-      <p className="text-sm text-muted-foreground">The daily digest and export options show up here in later phases.</p>
+      {process.env.RESEND_API_KEY && auth.user && (
+        <div className="space-y-3 rounded-lg border p-4">
+          <h2 className="text-sm font-medium">Daily digest</h2>
+          <DigestForm
+            accountEmail={auth.user.email ?? ""}
+            initialEnabled={settings?.digest_enabled ?? false}
+            initialEmail={settings?.digest_email ?? ""}
+          />
+        </div>
+      )}
+
+      <p className="text-sm text-muted-foreground">Export options show up here in a later phase.</p>
     </div>
   );
 }

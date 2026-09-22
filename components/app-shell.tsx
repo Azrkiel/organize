@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, CheckSquare, Home, Inbox, LogOut, Menu, PanelLeft, Settings } from "lucide-react";
+import { CalendarDays, CheckSquare, Home, Inbox, LogOut, Menu, PanelLeft, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { CourseTree } from "@/components/sidebar/course-tree";
 import { NewNoteButton } from "@/components/new-note-button";
+import { CommandPalette } from "@/components/command-palette";
 import { signOut } from "@/app/actions";
 import type { Course, Folder } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -117,6 +118,7 @@ export function AppShell({
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // Read after mount so server and first client render match.
   useEffect(() => {
@@ -174,12 +176,22 @@ export function AppShell({
           >
             <PanelLeft className="size-4" />
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() => setPaletteOpen(true)}
+          >
+            <Search className="size-4" /> Search
+            <kbd className="ml-2 hidden rounded border bg-muted px-1 text-[0.7rem] sm:inline">Ctrl K</kbd>
+          </Button>
           <div className="ml-auto">
             <NewNoteButton />
           </div>
         </header>
         <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">{children}</main>
       </div>
+      <CommandPalette courses={courses} open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   );
 }
