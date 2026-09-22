@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { syncTaskDeadline, unsyncTaskDeadline } from "@/lib/server/calendar/task-deadline";
 
 type ActionResult = { error?: string };
 
@@ -45,6 +46,20 @@ export async function createTask(input: {
     .single();
 
   if (error) return { error: "Could not create task." };
+
+  // Best-effort: a broken calendar connection must never fail task creation.
+  try {
+    await syncTaskDeadline(auth.user.id, {
+      id: data.id,
+      title: parsed.data.title,
+      due_at: parsed.data.dueAt ? parsed.data.dueAt.toISOString() : null,
+      course_id: parsed.data.courseId ?? null,
+      done: false,
+    });
+  } catch (err) {
+    console.error("syncTaskDeadline failed after createTask", err);
+  }
+
   revalidatePath("/tasks");
   revalidatePath("/", "layout");
   return { id: data.id };
@@ -52,17 +67,40 @@ export async function createTask(input: {
 
 export async function setTaskDone(taskId: string, done: boolean): Promise<ActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { error: "Not signed in." };
+
+  const { data, error } = await supabase
     .from("tasks")
     .update({ done, done_at: done ? new Date().toISOString() : null })
-    .eq("id", taskId);
+    .eq("id", taskId)
+    .select("id, title, due_at, course_id, done")
+    .single();
   if (error) return { error: "Could not update task." };
+
+  try {
+    await syncTaskDeadline(auth.user.id, data);
+  } catch (err) {
+    console.error("syncTaskDeadline failed after setTaskDone", err);
+  }
+
   revalidatePath("/tasks");
   return {};
 }
 
 export async function deleteTask(taskId: string): Promise<ActionResult> {
   const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { error: "Not signed in." };
+
+  // Must run before the delete: `events.task_id` cascades, which would wipe the external
+  // calendar ids before we get a chance to remove those events from the calendar too.
+  try {
+    await unsyncTaskDeadline(auth.user.id, taskId);
+  } catch (err) {
+    console.error("unsyncTaskDeadline failed before deleteTask", err);
+  }
+
   const { error } = await supabase.from("tasks").delete().eq("id", taskId);
   if (error) return { error: "Could not delete task." };
   revalidatePath("/tasks");

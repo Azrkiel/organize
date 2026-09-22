@@ -86,3 +86,11 @@ export async function deleteIntegration(userId: string, provider: CalendarProvid
     .eq("provider", provider);
   if (error) throw error;
 }
+
+/** Which providers a user has connected. Used by sync-out to know which calendars to mirror to. */
+export async function listConnectedProviders(userId: string): Promise<CalendarProvider[]> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.from("integrations").select("provider").eq("user_id", userId);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.provider as CalendarProvider);
+}
