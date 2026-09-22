@@ -128,3 +128,102 @@
     @apply font-sans;
   }
 }
+
+/* Note editor content (TipTap's editable root gets the "tiptap" class by default). */
+.tiptap {
+  line-height: 1.6;
+}
+.tiptap > * + * {
+  margin-top: 0.75em;
+}
+.tiptap h1 {
+  font-size: 1.5em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.tiptap h2 {
+  font-size: 1.25em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.tiptap h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+}
+.tiptap ul,
+.tiptap ol {
+  padding-left: 1.5em;
+}
+.tiptap ul {
+  list-style: disc;
+}
+.tiptap ol {
+  list-style: decimal;
+}
+.tiptap blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1em;
+  color: var(--muted-foreground);
+}
+.tiptap code {
+  background: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 0.15em 0.4em;
+  font-size: 0.9em;
+}
+.tiptap pre {
+  background: var(--muted);
+  border-radius: var(--radius-md);
+  padding: 0.75em 1em;
+  overflow-x: auto;
+}
+.tiptap pre code {
+  background: none;
+  padding: 0;
+}
+.tiptap a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.tiptap img {
+  max-width: 100%;
+  border-radius: var(--radius-md);
+}
+.tiptap hr {
+  border-color: var(--border);
+}
+.tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+.tiptap ul[data-type="taskList"] li > label {
+  margin-top: 0.2em;
+}
+.tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.tiptap th,
+.tiptap td {
+  border: 1px solid var(--border);
+  padding: 0.4em 0.6em;
+  text-align: left;
+}
+.tiptap th {
+  background: var(--muted);
+  font-weight: 600;
+}
+.tiptap .tiptap-mathematics-render {
+  padding: 0 0.1em;
+}
+.tiptap .tiptap-mathematics-render--editable:hover {
+  background: var(--muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}

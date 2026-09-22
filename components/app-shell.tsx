@@ -2,32 +2,78 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Home, LogOut, Menu, PanelLeft } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Home, Inbox, LogOut, Menu, PanelLeft, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { CourseTree } from "@/components/sidebar/course-tree";
+import { NewNoteButton } from "@/components/new-note-button";
 import { signOut } from "@/app/actions";
+import type { Course, Folder } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const COLLAPSED_KEY = "organize:sidebar-collapsed";
 
-function SidebarContent({ email, onNavigate }: { email: string; onNavigate?: () => void }) {
+function SidebarContent({
+  email,
+  courses,
+  archivedCourses,
+  foldersByCourse,
+  onNavigate,
+}: {
+  email: string;
+  courses: Course[];
+  archivedCourses: Course[];
+  foldersByCourse: Record<string, Folder[]>;
+  onNavigate?: () => void;
+}) {
+  const pathname = usePathname();
+
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 py-4 text-lg font-semibold tracking-tight">Organize</div>
-      <nav className="flex-1 space-y-1 px-2">
+      <nav className="space-y-0.5 px-2">
         <Link
           href="/"
           onClick={onNavigate}
-          className="flex h-11 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted"
+          className={cn(
+            "flex h-9 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted",
+            pathname === "/" && "bg-muted font-medium"
+          )}
         >
           <Home className="size-4" /> Home
         </Link>
+        <Link
+          href="/unfiled"
+          onClick={onNavigate}
+          className={cn(
+            "flex h-9 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted",
+            pathname === "/unfiled" && "bg-muted font-medium"
+          )}
+        >
+          <Inbox className="size-4" /> Unfiled
+        </Link>
       </nav>
-      <div className="space-y-2 border-t p-3">
-        <p className="truncate px-1 text-xs text-muted-foreground" title={email}>
+      <ScrollArea className="flex-1 px-2 py-2">
+        <CourseTree courses={courses} archivedCourses={archivedCourses} foldersByCourse={foldersByCourse} />
+      </ScrollArea>
+      <div className="space-y-1 border-t p-3">
+        <p className="truncate px-1 pb-1 text-xs text-muted-foreground" title={email}>
           {email}
         </p>
+        <Link
+          href="/settings"
+          onClick={onNavigate}
+          className={cn(
+            "flex h-9 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted",
+            pathname === "/settings" && "bg-muted font-medium"
+          )}
+        >
+          <Settings className="size-4" /> Settings
+        </Link>
         <form action={signOut}>
-          <Button type="submit" variant="ghost" className="h-11 w-full justify-start gap-2">
+          <Button type="submit" variant="ghost" className="h-9 w-full justify-start gap-2 px-3">
             <LogOut className="size-4" /> Sign out
           </Button>
         </form>
@@ -36,7 +82,19 @@ function SidebarContent({ email, onNavigate }: { email: string; onNavigate?: () 
   );
 }
 
-export function AppShell({ email, children }: { email: string; children: React.ReactNode }) {
+export function AppShell({
+  email,
+  courses,
+  archivedCourses,
+  foldersByCourse,
+  children,
+}: {
+  email: string;
+  courses: Course[];
+  archivedCourses: Course[];
+  foldersByCourse: Record<string, Folder[]>;
+  children: React.ReactNode;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -56,12 +114,14 @@ export function AppShell({ email, children }: { email: string; children: React.R
     });
   }
 
+  const sidebarProps = { email, courses, archivedCourses, foldersByCourse };
+
   return (
     <div className="flex min-h-dvh">
       {!collapsed && (
-        <aside className="hidden w-60 shrink-0 border-r md:block">
+        <aside className="hidden w-64 shrink-0 border-r md:block">
           <div className="sticky top-0 h-dvh">
-            <SidebarContent email={email} />
+            <SidebarContent {...sidebarProps} />
           </div>
         </aside>
       )}
@@ -70,7 +130,7 @@ export function AppShell({ email, children }: { email: string; children: React.R
         <SheetContent side="left" className="w-64 p-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SheetDescription className="sr-only">Main navigation</SheetDescription>
-          <SidebarContent email={email} onNavigate={() => setDrawerOpen(false)} />
+          <SidebarContent {...sidebarProps} onNavigate={() => setDrawerOpen(false)} />
         </SheetContent>
       </Sheet>
 
@@ -94,6 +154,9 @@ export function AppShell({ email, children }: { email: string; children: React.R
           >
             <PanelLeft className="size-4" />
           </Button>
+          <div className="ml-auto">
+            <NewNoteButton />
+          </div>
         </header>
         <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">{children}</main>
       </div>
