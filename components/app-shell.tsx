@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CheckSquare, Home, Inbox, LogOut, Menu, PanelLeft, Settings } from "lucide-react";
+import { CalendarDays, CheckSquare, Home, Inbox, LogOut, Menu, PanelLeft, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -53,6 +53,16 @@ function SidebarContent({
           )}
         >
           <CheckSquare className="size-4" /> Tasks
+        </Link>
+        <Link
+          href="/calendar"
+          onClick={onNavigate}
+          className={cn(
+            "flex h-9 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted",
+            pathname === "/calendar" && "bg-muted font-medium"
+          )}
+        >
+          <CalendarDays className="size-4" /> Calendar
         </Link>
         <Link
           href="/unfiled"
