@@ -46,6 +46,7 @@ export async function syncEventOut(userId: string, event: EventRow): Promise<voi
 
   const supabase = await createClient();
   const input = toCalendarInput(event);
+  const failures: string[] = [];
 
   for (const provider of providers) {
     const idColumn = EXTERNAL_ID_COLUMN[provider];
@@ -63,8 +64,17 @@ export async function syncEventOut(userId: string, event: EventRow): Promise<voi
     } catch (err) {
       // Logged, not thrown — a broken calendar connection must never block saving the note/task itself.
       console.error(`Calendar sync-out failed for event ${event.id} on ${provider}`, err);
+      const message = err instanceof Error ? err.message : String(err);
+      failures.push(`${provider}: ${message}`);
     }
   }
+
+  // Record the outcome so the UI can show a "sync failed, retry" badge (PLAN.md Phase 5 task 7),
+  // instead of the failure only living in a server log the owner will never see.
+  await supabase
+    .from("events")
+    .update({ sync_error: failures.length > 0 ? failures.join("; ") : null })
+    .eq("id", event.id);
 }
 
 /**

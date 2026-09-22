@@ -88,6 +88,29 @@ export async function setTaskDone(taskId: string, done: boolean): Promise<Action
   return {};
 }
 
+/** Re-attempts calendar sync for one task's linked deadline event, from the "sync failed" badge. */
+export async function retryTaskSync(taskId: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { error: "Not signed in." };
+
+  const { data: task, error } = await supabase
+    .from("tasks")
+    .select("id, title, due_at, course_id, done")
+    .eq("id", taskId)
+    .single();
+  if (error || !task) return { error: "Task not found." };
+
+  try {
+    await syncTaskDeadline(auth.user.id, task);
+  } catch (err) {
+    console.error("syncTaskDeadline failed during retry", err);
+  }
+
+  revalidatePath("/tasks");
+  return {};
+}
+
 export async function deleteTask(taskId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();

@@ -4,12 +4,12 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Flag, StickyNote, Trash2 } from "lucide-react";
+import { Flag, RotateCw, StickyNote, TriangleAlert, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { deleteTask, setTaskDone } from "@/app/(app)/actions/tasks";
+import { deleteTask, retryTaskSync, setTaskDone } from "@/app/(app)/actions/tasks";
 import { isOverdue } from "@/lib/task-buckets";
-import type { Course, Task } from "@/lib/types";
+import type { Course, TaskWithSync } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const PRIORITY_COLOR: Record<number, string> = {
@@ -18,7 +18,7 @@ const PRIORITY_COLOR: Record<number, string> = {
   3: "text-destructive",
 };
 
-export function TaskItem({ task, course }: { task: Task; course: Course | null }) {
+export function TaskItem({ task, course }: { task: TaskWithSync; course: Course | null }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const overdue = !task.done && isOverdue(task.due_at);
@@ -33,6 +33,13 @@ export function TaskItem({ task, course }: { task: Task; course: Course | null }
   function handleDelete() {
     startTransition(async () => {
       await deleteTask(task.id);
+      router.refresh();
+    });
+  }
+
+  function handleRetrySync() {
+    startTransition(async () => {
+      await retryTaskSync(task.id);
       router.refresh();
     });
   }
@@ -69,6 +76,19 @@ export function TaskItem({ task, course }: { task: Task; course: Course | null }
             <Link href={`/notes/${task.note_id}`} className="flex items-center gap-1 hover:text-foreground">
               <StickyNote className="size-3" /> Note
             </Link>
+          )}
+          {task.syncError && (
+            <button
+              type="button"
+              onClick={handleRetrySync}
+              disabled={pending}
+              title={task.syncError}
+              className="flex items-center gap-1 rounded text-amber-600 hover:underline disabled:opacity-50 dark:text-amber-500"
+            >
+              <TriangleAlert className="size-3" />
+              Sync failed
+              <RotateCw className={cn("size-3", pending && "animate-spin")} />
+            </button>
           )}
         </div>
       </div>

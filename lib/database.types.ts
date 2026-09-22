@@ -121,6 +121,7 @@ export type Database = {
           kind: string
           outlook_event_id: string | null
           starts_at: string
+          sync_error: string | null
           task_id: string | null
           title: string
           updated_at: string
@@ -136,6 +137,7 @@ export type Database = {
           kind?: string
           outlook_event_id?: string | null
           starts_at: string
+          sync_error?: string | null
           task_id?: string | null
           title: string
           updated_at?: string
@@ -151,6 +153,7 @@ export type Database = {
           kind?: string
           outlook_event_id?: string | null
           starts_at?: string
+          sync_error?: string | null
           task_id?: string | null
           title?: string
           updated_at?: string

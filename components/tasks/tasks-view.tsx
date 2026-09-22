@@ -6,9 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuickAdd } from "@/components/tasks/quick-add";
 import { TaskItem } from "@/components/tasks/task-item";
 import { isDueTodayOrOverdue, isUpcoming } from "@/lib/task-buckets";
-import type { Course, Task } from "@/lib/types";
+import type { Course, TaskWithSync } from "@/lib/types";
 
-function CompletedSection({ tasks, courseById }: { tasks: Task[]; courseById: Map<string, Course> }) {
+function CompletedSection({ tasks, courseById }: { tasks: TaskWithSync[]; courseById: Map<string, Course> }) {
   const [open, setOpen] = useState(false);
   if (tasks.length === 0) return null;
 
@@ -33,7 +33,15 @@ function CompletedSection({ tasks, courseById }: { tasks: Task[]; courseById: Ma
   );
 }
 
-function TaskList({ tasks, courseById, emptyLabel }: { tasks: Task[]; courseById: Map<string, Course>; emptyLabel: string }) {
+function TaskList({
+  tasks,
+  courseById,
+  emptyLabel,
+}: {
+  tasks: TaskWithSync[];
+  courseById: Map<string, Course>;
+  emptyLabel: string;
+}) {
   if (tasks.length === 0) {
     return <p className="py-6 text-center text-sm text-muted-foreground">{emptyLabel}</p>;
   }
@@ -46,12 +54,12 @@ function TaskList({ tasks, courseById, emptyLabel }: { tasks: Task[]; courseById
   );
 }
 
-export function TasksView({ tasks, courses }: { tasks: Task[]; courses: Course[] }) {
+export function TasksView({ tasks, courses }: { tasks: TaskWithSync[]; courses: Course[] }) {
   const courseById = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
 
   const { notDone, done } = useMemo(() => {
-    const notDone: Task[] = [];
-    const done: Task[] = [];
+    const notDone: TaskWithSync[] = [];
+    const done: TaskWithSync[] = [];
     for (const t of tasks) (t.done ? done : notDone).push(t);
     return { notDone, done };
   }, [tasks]);
@@ -63,7 +71,7 @@ export function TasksView({ tasks, courses }: { tasks: Task[]; courses: Course[]
   const upcomingDone = useMemo(() => done.filter((t) => isUpcoming(t.due_at)), [done]);
 
   const byCourse = useMemo(() => {
-    const groups = new Map<string, Task[]>();
+    const groups = new Map<string, TaskWithSync[]>();
     for (const t of notDone) {
       const key = t.course_id ?? "__unfiled__";
       const list = groups.get(key);

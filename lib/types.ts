@@ -9,6 +9,9 @@ export type Attachment = Tables["attachments"]["Row"];
 export type Task = Tables["tasks"]["Row"];
 export type Event = Tables["events"]["Row"];
 
+/** A task plus its linked deadline event's calendar-sync status, if it has one. */
+export type TaskWithSync = Task & { syncError: string | null };
+
 /** A folder with its direct children attached, built client-side from a flat list. */
 export type FolderNode = Folder & { children: FolderNode[] };
 
