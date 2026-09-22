@@ -1,16 +1,80 @@
 import { getAttachmentStorageBytes } from "@/lib/server/storage-usage";
 import { formatBytes } from "@/lib/format-bytes";
+import { createClient } from "@/lib/supabase/server";
+import { getIntegration } from "@/lib/server/integrations";
+import { buttonVariants } from "@/components/ui/button";
+import { DisconnectButton } from "@/components/settings/disconnect-button";
+import { cn } from "@/lib/utils";
 
 // Free-tier Supabase Storage is ~1 GB total (shared with everything else in the project).
 const STORAGE_BUDGET_BYTES = 1024 * 1024 * 1024;
 
-export default async function SettingsPage() {
+const GOOGLE_STATUS_MESSAGES: Record<string, { text: string; tone: "success" | "error" }> = {
+  connected: { text: "Google Calendar connected.", tone: "success" },
+  cancelled: { text: "Google connection cancelled.", tone: "error" },
+  error: { text: "Couldn't connect Google Calendar. Try again.", tone: "error" },
+};
+
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ google?: string }>;
+}) {
+  const { google: googleStatus } = await searchParams;
   const bytes = await getAttachmentStorageBytes();
   const percent = bytes === null ? 0 : Math.min(100, Math.round((bytes / STORAGE_BUDGET_BYTES) * 100));
+
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  const google = auth.user ? await getIntegration(auth.user.id, "google") : null;
+
+  const statusMessage = googleStatus ? GOOGLE_STATUS_MESSAGES[googleStatus] : undefined;
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+
+      {statusMessage && (
+        <p
+          className={cn(
+            "rounded-lg border p-3 text-sm",
+            statusMessage.tone === "success"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+              : "border-destructive/30 bg-destructive/10 text-destructive"
+          )}
+        >
+          {statusMessage.text}
+        </p>
+      )}
+
+      <div className="space-y-3 rounded-lg border p-4">
+        <h2 className="text-sm font-medium">Calendar sync</h2>
+
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">Google Calendar</p>
+            <p className="text-sm text-muted-foreground">
+              {google ? `Connected as ${google.accountEmail ?? "unknown account"}` : "Not connected"}
+            </p>
+          </div>
+          {google ? (
+            <DisconnectButton provider="google" />
+          ) : (
+            <a href="/api/integrations/google/connect" className={cn(buttonVariants({ variant: "outline" }))}>
+              Connect
+            </a>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t pt-3">
+          <div>
+            <p className="text-sm font-medium">Outlook</p>
+            <p className="text-sm text-muted-foreground">
+              Not connected. Blocked by UVA&apos;s Microsoft admin policy — pending an IT request.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="space-y-2 rounded-lg border p-4">
         <h2 className="text-sm font-medium">Attachment storage</h2>
@@ -28,9 +92,7 @@ export default async function SettingsPage() {
         )}
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        Calendar sync, the daily digest, and export options show up here in later phases.
-      </p>
+      <p className="text-sm text-muted-foreground">The daily digest and export options show up here in later phases.</p>
     </div>
   );
 }
