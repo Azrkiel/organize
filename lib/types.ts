@@ -6,6 +6,7 @@ export type Course = Tables["courses"]["Row"];
 export type Folder = Tables["folders"]["Row"];
 export type Note = Tables["notes"]["Row"];
 export type Attachment = Tables["attachments"]["Row"];
+export type Task = Tables["tasks"]["Row"];
 
 /** A folder with its direct children attached, built client-side from a flat list. */
 export type FolderNode = Folder & { children: FolderNode[] };
