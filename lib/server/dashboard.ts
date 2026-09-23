@@ -1,6 +1,8 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getTasks } from "@/lib/server/tasks";
+import { getWeeklyMinutesByCourse, type CourseMinutes } from "@/lib/server/focus-sessions";
+import { getDueFlashcardCount } from "@/lib/server/flashcards";
 import { isDueTodayOrOverdue } from "@/lib/task-buckets";
 import { DEFAULT_TIMEZONE } from "@/lib/timezone";
 import type { Course, Event, Note, TaskWithSync } from "@/lib/types";
@@ -13,6 +15,9 @@ export type DashboardData = {
   upcomingEvents: Event[];
   recentNotes: Note[];
   courses: Course[];
+  weeklyFocusMinutes: CourseMinutes[];
+  /** Cards due for review right now. Deferred from Phase 6 (task 1) until flashcards existed. */
+  flashcardsDue: number;
 };
 
 const EMPTY: DashboardData = {
@@ -22,6 +27,8 @@ const EMPTY: DashboardData = {
   upcomingEvents: [],
   recentNotes: [],
   courses: [],
+  weeklyFocusMinutes: [],
+  flashcardsDue: 0,
 };
 
 /** Everything the home dashboard needs, in one round trip per widget (PLAN.md Phase 6 task 1). */
@@ -32,16 +39,26 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const nowIso = new Date().toISOString();
 
-  const [tasks, { data: exams }, { data: events }, { data: notes }, { data: courses }, { data: settings }] =
-    await Promise.all([
-      getTasks(),
-      supabase.from("events").select("*").eq("kind", "exam").gte("starts_at", nowIso).order("starts_at").limit(3),
-      // Exams get their own widget above, so leave them out here to avoid showing the same thing twice.
-      supabase.from("events").select("*").neq("kind", "exam").gte("starts_at", nowIso).order("starts_at").limit(5),
-      supabase.from("notes").select("*").order("updated_at", { ascending: false }).limit(6),
-      supabase.from("courses").select("*").eq("archived", false).order("position"),
-      supabase.from("settings").select("timezone").maybeSingle(),
-    ]);
+  const [
+    tasks,
+    { data: exams },
+    { data: events },
+    { data: notes },
+    { data: courses },
+    { data: settings },
+    weeklyFocusMinutes,
+    flashcardsDue,
+  ] = await Promise.all([
+    getTasks(),
+    supabase.from("events").select("*").eq("kind", "exam").gte("starts_at", nowIso).order("starts_at").limit(3),
+    // Exams get their own widget above, so leave them out here to avoid showing the same thing twice.
+    supabase.from("events").select("*").neq("kind", "exam").gte("starts_at", nowIso).order("starts_at").limit(5),
+    supabase.from("notes").select("*").order("updated_at", { ascending: false }).limit(6),
+    supabase.from("courses").select("*").eq("archived", false).order("position"),
+    supabase.from("settings").select("timezone").maybeSingle(),
+    getWeeklyMinutesByCourse(),
+    getDueFlashcardCount(),
+  ]);
 
   return {
     greetingHour: getHourInTimeZone(settings?.timezone ?? DEFAULT_TIMEZONE),
@@ -50,6 +67,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     upcomingEvents: events ?? [],
     recentNotes: notes ?? [],
     courses: courses ?? [],
+    weeklyFocusMinutes,
+    flashcardsDue,
   };
 }
 

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { CalendarClock, GraduationCap } from "lucide-react";
+import { CalendarClock, GraduationCap, Layers } from "lucide-react";
 import { NotesList } from "@/components/notes-list";
 import { TaskItem } from "@/components/tasks/task-item";
+import { WeeklyFocusChartLoader } from "@/components/dashboard/weekly-focus-chart-loader";
 import { getDashboardData } from "@/lib/server/dashboard";
 import { getGreeting } from "@/lib/greeting";
 import { daysUntil, formatCountdown } from "@/lib/countdown";
@@ -90,6 +91,19 @@ export default async function HomePage() {
         </section>
       </div>
 
+      {data.flashcardsDue > 0 && (
+        <Link
+          href="/review"
+          className="flex items-center gap-2 rounded-lg border p-4 text-sm hover:bg-muted/50"
+        >
+          <Layers className="size-4 text-muted-foreground" />
+          <span className="font-medium">
+            {data.flashcardsDue} flashcard{data.flashcardsDue === 1 ? "" : "s"} due
+          </span>
+          <span className="ml-auto text-xs text-muted-foreground">Review →</span>
+        </Link>
+      )}
+
       <div className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Today&apos;s tasks</h2>
         {data.todayTasks.length === 0 ? (
@@ -106,6 +120,11 @@ export default async function HomePage() {
       <div className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Recent notes</h2>
         <NotesList notes={data.recentNotes} emptyLabel="No notes yet. Add a course, then create your first note." />
+      </div>
+
+      <div className="space-y-2">
+        <h2 className="text-sm font-medium text-muted-foreground">Focus time this week</h2>
+        <WeeklyFocusChartLoader minutes={data.weeklyFocusMinutes} courses={data.courses} />
       </div>
     </div>
   );

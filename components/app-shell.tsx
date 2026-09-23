@@ -3,7 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, CheckSquare, Home, Inbox, LogOut, Menu, PanelLeft, Search, Settings } from "lucide-react";
+import {
+  CalendarDays,
+  CheckSquare,
+  Home,
+  Inbox,
+  Layers,
+  LogOut,
+  Menu,
+  PanelLeft,
+  RotateCcw,
+  Search,
+  Settings,
+  Timer,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -15,6 +28,16 @@ import type { Course, Folder } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const COLLAPSED_KEY = "organize:sidebar-collapsed";
+
+const NAV_ITEMS = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/review", label: "Review", icon: RotateCcw },
+  { href: "/flashcards", label: "Flashcards", icon: Layers },
+  { href: "/focus", label: "Focus", icon: Timer },
+  { href: "/unfiled", label: "Unfiled", icon: Inbox },
+] as const;
 
 function SidebarContent({
   email,
@@ -35,46 +58,19 @@ function SidebarContent({
     <div className="flex h-full flex-col">
       <div className="px-4 py-4 text-lg font-semibold tracking-tight">Organize</div>
       <nav className="space-y-0.5 px-2">
-        <Link
-          href="/"
-          onClick={onNavigate}
-          className={cn(
-            "flex h-9 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted",
-            pathname === "/" && "bg-muted font-medium"
-          )}
-        >
-          <Home className="size-4" /> Home
-        </Link>
-        <Link
-          href="/tasks"
-          onClick={onNavigate}
-          className={cn(
-            "flex h-9 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted",
-            pathname === "/tasks" && "bg-muted font-medium"
-          )}
-        >
-          <CheckSquare className="size-4" /> Tasks
-        </Link>
-        <Link
-          href="/calendar"
-          onClick={onNavigate}
-          className={cn(
-            "flex h-9 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted",
-            pathname === "/calendar" && "bg-muted font-medium"
-          )}
-        >
-          <CalendarDays className="size-4" /> Calendar
-        </Link>
-        <Link
-          href="/unfiled"
-          onClick={onNavigate}
-          className={cn(
-            "flex h-9 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted",
-            pathname === "/unfiled" && "bg-muted font-medium"
-          )}
-        >
-          <Inbox className="size-4" /> Unfiled
-        </Link>
+        {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            onClick={onNavigate}
+            className={cn(
+              "flex h-9 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted",
+              pathname === href && "bg-muted font-medium"
+            )}
+          >
+            <Icon className="size-4" /> {label}
+          </Link>
+        ))}
       </nav>
       <ScrollArea className="flex-1 px-2 py-2">
         <CourseTree courses={courses} archivedCourses={archivedCourses} foldersByCourse={foldersByCourse} />

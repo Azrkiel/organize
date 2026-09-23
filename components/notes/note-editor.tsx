@@ -25,7 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { EditorToolbar } from "@/components/notes/editor-toolbar";
-import { MakeTaskMenu } from "@/components/notes/make-task-menu";
+import { SelectionMenu } from "@/components/notes/selection-menu";
 import { AttachmentsPanel, type AttachmentWithUrl } from "@/components/notes/attachments-panel";
 import { deleteNote, saveNote, setNotePinned } from "@/app/(app)/actions/notes";
 import type { Note } from "@/lib/types";
@@ -176,7 +176,7 @@ export function NoteEditor({
       <div className="rounded-lg border">
         <EditorToolbar editor={editor} />
         <div className="px-4 py-3">
-          <MakeTaskMenu editor={editor} noteId={note.id} courseId={note.course_id} />
+          <SelectionMenu editor={editor} noteId={note.id} courseId={note.course_id} />
           <EditorContent editor={editor} />
         </div>
       </div>
