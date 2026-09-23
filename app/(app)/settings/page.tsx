@@ -5,6 +5,8 @@ import { getIntegration } from "@/lib/server/integrations";
 import { buttonVariants } from "@/components/ui/button";
 import { DisconnectButton } from "@/components/settings/disconnect-button";
 import { DigestForm } from "@/components/settings/digest-form";
+import { ExportButton } from "@/components/settings/export-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 // Free-tier Supabase Storage is ~1 GB total (shared with everything else in the project).
@@ -50,6 +52,11 @@ export default async function SettingsPage({
           {statusMessage.text}
         </p>
       )}
+
+      <div className="flex items-center justify-between gap-3 rounded-lg border p-4">
+        <h2 className="text-sm font-medium">Appearance</h2>
+        <ThemeToggle />
+      </div>
 
       <div className="space-y-3 rounded-lg border p-4">
         <h2 className="text-sm font-medium">Calendar sync</h2>
@@ -107,7 +114,14 @@ export default async function SettingsPage({
         </div>
       )}
 
-      <p className="text-sm text-muted-foreground">Export options show up here in a later phase.</p>
+      <div className="space-y-2 rounded-lg border p-4">
+        <h2 className="text-sm font-medium">Export</h2>
+        <p className="text-sm text-muted-foreground">
+          Download every note as Markdown, in its course/folder structure, plus attachments — a ZIP built
+          right in your browser.
+        </p>
+        <ExportButton />
+      </div>
     </div>
   );
 }

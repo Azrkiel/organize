@@ -34,6 +34,7 @@
     "date-fns-tz": "^3.2.0",
     "geist": "^1.7.2",
     "googleapis": "^181.0.0",
+    "jszip": "^3.10.2",
     "katex": "^0.18.7",
     "lucide-react": "^1.47.0",
     "next": "15.5.25",

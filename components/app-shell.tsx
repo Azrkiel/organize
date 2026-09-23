@@ -39,6 +39,16 @@ const NAV_ITEMS = [
   { href: "/unfiled", label: "Unfiled", icon: Inbox },
 ] as const;
 
+// A curated subset for the mobile bottom bar (PLAN.md Phase 8 task 2) — the full nav has grown
+// to 7 items since this task was written; everything else stays one tap away via the drawer.
+// "Notes" points at /unfiled, the app's one general-purpose (not course-scoped) notes list.
+const BOTTOM_NAV_ITEMS = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/unfiled", label: "Notes", icon: Inbox },
+  { href: "/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
+] as const;
+
 function SidebarContent({
   email,
   courses,
@@ -96,6 +106,34 @@ function SidebarContent({
         </form>
       </div>
     </div>
+  );
+}
+
+function BottomNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
+      aria-label="Primary"
+    >
+      {BOTTOM_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        const active = pathname === href;
+        return (
+          <Link
+            key={href}
+            href={href}
+            className={cn(
+              "flex h-14 flex-1 flex-col items-center justify-center gap-0.5 text-xs text-muted-foreground",
+              active && "text-foreground font-medium"
+            )}
+          >
+            <Icon className="size-5" />
+            {label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -185,8 +223,9 @@ export function AppShell({
             <NewNoteButton />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 pb-24 md:pb-8">{children}</main>
       </div>
+      <BottomNav />
       <CommandPalette courses={courses} open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   );
