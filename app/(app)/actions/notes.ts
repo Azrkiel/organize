@@ -32,6 +32,40 @@ export async function createNote(courseId: string | null, folderId: string | nul
   return { id: data.id };
 }
 
+const moveSchema = z.object({
+  courseId: z.string().uuid().nullable(),
+  folderId: z.string().uuid().nullable(),
+});
+
+/** Moves a note to a different course/folder/Unfiled — e.g. dropped onto a sidebar target. */
+export async function moveNote(
+  noteId: string,
+  input: { courseId: string | null; folderId: string | null }
+): Promise<ActionResult> {
+  const parsed = moveSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid destination." };
+
+  const supabase = await createClient();
+
+  // Same invariant as createNote: a folder always belongs to a course, so moving a note into
+  // one inherits that course regardless of what the caller passed.
+  let resolvedCourseId = parsed.data.courseId;
+  if (parsed.data.folderId) {
+    const { data: folder } = await supabase.from("folders").select("course_id").eq("id", parsed.data.folderId).single();
+    if (!folder) return { error: "Folder not found." };
+    resolvedCourseId = folder.course_id;
+  }
+
+  const { error } = await supabase
+    .from("notes")
+    .update({ course_id: resolvedCourseId, folder_id: parsed.data.folderId })
+    .eq("id", noteId);
+
+  if (error) return { error: "Could not move note." };
+  revalidatePath("/", "layout");
+  return {};
+}
+
 const saveSchema = z.object({
   title: z.string().trim().min(1).max(200).default("Untitled"),
   content: z.custom<Json>(),

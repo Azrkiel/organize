@@ -3,15 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  DndContext,
-  type DragEndEvent,
-  PointerSensor,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronRight, Folder as FolderIcon, MoreHorizontal, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { NameDialog } from "@/components/sidebar/name-dialog";
-import { createFolder, deleteFolder, moveFolder, renameFolder } from "@/app/(app)/actions/folders";
+import { createFolder, deleteFolder, renameFolder } from "@/app/(app)/actions/folders";
 import { buildFolderTree, type FolderNode } from "@/lib/types";
 import type { Folder } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -81,11 +73,11 @@ function FolderRow({
 
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: `folder:${node.id}`,
-    data: { folderId: node.id },
+    data: { type: "folder", folderId: node.id },
   });
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `folder:${node.id}`,
-    data: { folderId: node.id },
+    data: { type: "folder", folderId: node.id },
   });
 
   return (
@@ -206,8 +198,12 @@ export function FolderTree({ courseId, folders }: { courseId: string; folders: F
   useEffect(() => setExpanded(readExpanded()), []);
   const [createParentId, setCreateParentId] = useState<string | null | undefined>(undefined);
 
-  const { setNodeRef: setRootDropRef, isOver: isRootOver } = useDroppable({ id: ROOT_DROP_ID(courseId) });
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  // Data carries { type: "folder-root", courseId } — components/app-shell.tsx's shared
+  // DndContext reads it to know both which course this is and that it's the "no folder" target.
+  const { setNodeRef: setRootDropRef, isOver: isRootOver } = useDroppable({
+    id: ROOT_DROP_ID(courseId),
+    data: { type: "folder-root", courseId },
+  });
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -219,31 +215,10 @@ export function FolderTree({ courseId, folders }: { courseId: string; folders: F
     });
   }
 
-  function handleDragEnd(event: DragEndEvent) {
-    const folderId = event.active.data.current?.folderId as string | undefined;
-    if (!folderId) return;
-    const overId = event.over?.id;
-    if (!overId) return;
-
-    if (overId === ROOT_DROP_ID(courseId)) {
-      moveFolder(folderId, null).then(() => router.refresh());
-      return;
-    }
-    const targetId = (event.over?.data.current?.folderId as string | undefined) ?? null;
-    if (targetId && targetId !== folderId) {
-      moveFolder(folderId, targetId).then(() => {
-        setExpanded((prev) => {
-          const next = new Set(prev).add(targetId);
-          writeExpanded(next);
-          return next;
-        });
-        router.refresh();
-      });
-    }
-  }
-
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <>
+      {/* The DndContext this belongs to is shared with courses/notes, owned by
+          components/app-shell.tsx — see course-tree.tsx's identical note on why. */}
       <div ref={setRootDropRef} className={cn("rounded-lg", isRootOver && "outline outline-2 outline-primary")}>
         {tree.map((node) => (
           <FolderRow
@@ -285,6 +260,6 @@ export function FolderTree({ courseId, folders }: { courseId: string; folders: F
           return result;
         }}
       />
-    </DndContext>
+    </>
   );
 }

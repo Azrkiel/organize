@@ -60,7 +60,16 @@ export async function getCalendarItems(range: { from: Date; to: Date }): Promise
     source: "local",
   }));
 
-  const providers = await listConnectedProviders(auth.user.id);
+  // Unlike the per-provider pulls below, this itself can throw — e.g. SUPABASE_SERVICE_ROLE_KEY
+  // missing in this environment (createServiceClient's own check). That's a config problem, not
+  // a "provider unreachable" one, but it still shouldn't take down local events with it: the
+  // calendar is useful even with zero connected providers.
+  let providers: CalendarProvider[] = [];
+  try {
+    providers = await listConnectedProviders(auth.user.id);
+  } catch (err) {
+    console.error("Failed to look up connected calendar providers", err);
+  }
   for (const provider of providers) {
     try {
       const client = await getCalendarClient(auth.user.id, provider);

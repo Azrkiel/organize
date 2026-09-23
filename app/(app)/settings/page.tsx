@@ -29,7 +29,21 @@ export default async function SettingsPage({
 
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  const google = auth.user ? await getIntegration(auth.user.id, "google") : null;
+
+  // getIntegration needs the service-role client and TOKEN_ENCRYPTION_KEY — if either is missing
+  // in this environment, that's a config problem the owner needs to see, but it shouldn't take
+  // the rest of this page (appearance, storage, digest, export) down with it.
+  let google: Awaited<ReturnType<typeof getIntegration>> = null;
+  let googleCheckFailed = false;
+  if (auth.user) {
+    try {
+      google = await getIntegration(auth.user.id, "google");
+    } catch (err) {
+      console.error("Failed to look up the Google integration", err);
+      googleCheckFailed = true;
+    }
+  }
+
   const { data: settings } = auth.user
     ? await supabase.from("settings").select("digest_enabled, digest_email").eq("user_id", auth.user.id).single()
     : { data: null };
@@ -65,16 +79,21 @@ export default async function SettingsPage({
           <div>
             <p className="text-sm font-medium">Google Calendar</p>
             <p className="text-sm text-muted-foreground">
-              {google ? `Connected as ${google.accountEmail ?? "unknown account"}` : "Not connected"}
+              {googleCheckFailed
+                ? "Couldn't check connection status right now."
+                : google
+                  ? `Connected as ${google.accountEmail ?? "unknown account"}`
+                  : "Not connected"}
             </p>
           </div>
-          {google ? (
-            <DisconnectButton provider="google" />
-          ) : (
-            <a href="/api/integrations/google/connect" className={cn(buttonVariants({ variant: "outline" }))}>
-              Connect
-            </a>
-          )}
+          {!googleCheckFailed &&
+            (google ? (
+              <DisconnectButton provider="google" />
+            ) : (
+              <a href="/api/integrations/google/connect" className={cn(buttonVariants({ variant: "outline" }))}>
+                Connect
+              </a>
+            ))}
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t pt-3">

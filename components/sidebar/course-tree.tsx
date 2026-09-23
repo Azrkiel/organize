@@ -3,20 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  DndContext,
-  type DragEndEvent,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Archive, ChevronRight, GripVertical, MoreHorizontal, PaintBucket, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,13 +17,7 @@ import {
 import { NameDialog } from "@/components/sidebar/name-dialog";
 import { ColorPicker } from "@/components/sidebar/color-picker";
 import { FolderTree } from "@/components/sidebar/folder-tree";
-import {
-  createCourse,
-  recolorCourse,
-  renameCourse,
-  reorderCourses,
-  setCourseArchived,
-} from "@/app/(app)/actions/courses";
+import { createCourse, recolorCourse, renameCourse, setCourseArchived } from "@/app/(app)/actions/courses";
 import type { Course, Folder } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -75,6 +56,7 @@ function CourseRow({
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: course.id,
+    data: { type: "course", courseId: course.id },
   });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -207,16 +189,11 @@ export function CourseTree({
   foldersByCourse: Record<string, Folder[]>;
 }) {
   const router = useRouter();
-  const [order, setOrder] = useState(courses);
   // Starts empty (matching the server render) and is filled from localStorage after mount,
   // so the client's first render still matches what was server-rendered (no hydration mismatch).
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   useEffect(() => setExpanded(readExpanded()), []);
   const [createOpen, setCreateOpen] = useState(false);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-
-  // Keep local order in sync when the server sends fresh data (after any mutation, router.refresh()).
-  useEffect(() => setOrder(courses), [courses]);
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -228,17 +205,6 @@ export function CourseTree({
     });
   }
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = order.findIndex((c) => c.id === active.id);
-    const newIndex = order.findIndex((c) => c.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const next = arrayMove(order, oldIndex, newIndex);
-    setOrder(next);
-    reorderCourses(next.map((c) => c.id)).then(() => router.refresh());
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between px-2 py-1">
@@ -248,22 +214,23 @@ export function CourseTree({
         </Button>
       </div>
 
-      {order.length === 0 ? (
+      {courses.length === 0 ? (
         <p className="px-2 py-2 text-xs text-muted-foreground">No courses yet.</p>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={order.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-            {order.map((course) => (
-              <CourseRow
-                key={course.id}
-                course={course}
-                folders={foldersByCourse[course.id] ?? []}
-                isExpanded={expanded.has(course.id)}
-                onToggle={() => toggle(course.id)}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
+        // The DndContext this belongs to is a single one shared with folders/notes, owned by
+        // components/app-shell.tsx — a note or folder dropped on a course row needs to be in the
+        // same drag context as this list to be recognized as "over" it.
+        <SortableContext items={courses.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+          {courses.map((course) => (
+            <CourseRow
+              key={course.id}
+              course={course}
+              folders={foldersByCourse[course.id] ?? []}
+              isExpanded={expanded.has(course.id)}
+              onToggle={() => toggle(course.id)}
+            />
+          ))}
+        </SortableContext>
       )}
 
       <ArchivedSection courses={archivedCourses} />
