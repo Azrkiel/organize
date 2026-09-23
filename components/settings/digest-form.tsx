@@ -54,6 +54,9 @@ export function DigestForm({
         <Input
           id="digest-email"
           type="email"
+          // Left blank this falls back to the account email, so don't let the browser
+          // autofill it with a value the owner never actually chose.
+          autoComplete="off"
           placeholder={accountEmail}
           value={email}
           onChange={(e) => setEmail(e.target.value)}

@@ -36,11 +36,19 @@ export function CommandPalette({
   const [searching, setSearching] = useState(false);
   const requestId = useRef(0);
 
+  // Centralized so the query resets no matter how the dialog closes — clicking an item, hitting
+  // Escape, or clicking the overlay all end up here via CommandDialog's own onOpenChange, not just
+  // the explicit close() paths below. Otherwise a stale query reappears the next time it's opened.
+  function handleOpenChange(next: boolean) {
+    onOpenChange(next);
+    if (!next) setQuery("");
+  }
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        onOpenChange(!open);
+        handleOpenChange(!open);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -68,18 +76,13 @@ export function CommandPalette({
     return () => clearTimeout(timer);
   }, [query]);
 
-  function close() {
-    onOpenChange(false);
-    setQuery("");
-  }
-
   function go(href: string) {
     router.push(href);
-    close();
+    handleOpenChange(false);
   }
 
   function handleNewNote() {
-    close();
+    handleOpenChange(false);
     createNote(null, null).then((result) => {
       if (result.id) router.push(`/notes/${result.id}`);
     });
@@ -91,7 +94,7 @@ export function CommandPalette({
     : courses;
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
+    <CommandDialog open={open} onOpenChange={handleOpenChange} shouldFilter={false}>
       <CommandInput placeholder="Search notes and tasks..." value={query} onValueChange={setQuery} />
       <CommandList>
         {trimmedQuery && !searching && results.length === 0 && matchingCourses.length === 0 && (

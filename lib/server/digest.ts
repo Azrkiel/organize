@@ -53,10 +53,14 @@ export async function getDigestData(userId: string, timeZone: string): Promise<D
       .not("due_at", "is", null)
       .lt("due_at", endIso)
       .order("due_at"),
+    // `task_id is null` because Phase 5 mirrors every task with a due date into a linked
+    // `deadline` event. Those tasks are already listed in the task sections above, so
+    // including their events here would print each one twice.
     supabase
       .from("events")
       .select("*")
       .eq("user_id", userId)
+      .is("task_id", null)
       .gte("starts_at", startIso)
       .lt("starts_at", endIso)
       .order("starts_at"),

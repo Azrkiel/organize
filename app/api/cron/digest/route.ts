@@ -10,8 +10,16 @@ export const dynamic = "force-dynamic";
  * overdue items, today's events, and exam countdowns (PLAN.md Phase 6 task 3).
  */
 export async function GET(request: NextRequest) {
+  // Without this guard an unset CRON_SECRET would make the expected header the literal
+  // "Bearer undefined", so anyone who guessed that string could trigger the route.
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    console.error("CRON_SECRET is not set — refusing to run the digest cron.");
+    return NextResponse.json({ error: "Cron not configured" }, { status: 503 });
+  }
+
   const auth = request.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
