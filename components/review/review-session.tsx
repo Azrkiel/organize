@@ -75,6 +75,10 @@ export function ReviewSession({
     () => courses.find((c) => c.id === activeCourseId)?.name,
     [courses, activeCourseId]
   );
+  const courseItems = useMemo(
+    () => ({ __all__: "All courses", ...Object.fromEntries(courses.map((c) => [c.id, c.name])) }),
+    [courses]
+  );
 
   function handleCourseChange(value: string | null) {
     router.push(!value || value === "__all__" ? "/review" : `/review?course=${value}`);
@@ -82,7 +86,11 @@ export function ReviewSession({
 
   return (
     <div className="space-y-4">
-      <Select value={activeCourseId ?? "__all__"} onValueChange={handleCourseChange}>
+      <Select
+        items={courseItems}
+        value={activeCourseId ?? "__all__"}
+        onValueChange={handleCourseChange}
+      >
         <SelectTrigger className="w-56">
           <SelectValue placeholder="All courses" />
         </SelectTrigger>

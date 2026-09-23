@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -26,16 +26,27 @@ export function CardEditDialog({
   const [courseId, setCourseId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // A stable reference: Base UI's Select re-syncs this into its own store on every render
+  // where the reference changes, so an inline object literal here would churn on every
+  // keystroke in the front/back fields.
+  const courseItems = useMemo(
+    () => ({ __none__: "No course", ...Object.fromEntries(courses.map((c) => [c.id, c.name])) }),
+    [courses]
+  );
 
-  function handleOpenChange(next: boolean) {
-    if (next && card) {
+  // This dialog is opened purely by the parent flipping `open` from outside (there's no
+  // internal Trigger), and Base UI's `onOpenChange` only fires for its own internally-detected
+  // close requests (Escape/backdrop/close button) — never for an externally-driven open. So the
+  // prefill has to react to the `open` prop directly, not to onOpenChange.
+  useEffect(() => {
+    if (open && card) {
       setFront(card.front);
       setBack(card.back);
       setCourseId(card.course_id);
       setError(null);
     }
-    onOpenChange(next);
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, card?.id]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,7 +62,7 @@ export function CardEditDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
@@ -68,7 +79,11 @@ export function CardEditDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Course</Label>
-              <Select value={courseId ?? "__none__"} onValueChange={(v) => setCourseId(v === "__none__" ? null : v)}>
+              <Select
+                items={courseItems}
+                value={courseId ?? "__none__"}
+                onValueChange={(v) => setCourseId(v === "__none__" ? null : v)}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>

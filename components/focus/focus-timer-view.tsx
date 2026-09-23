@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Play, Pause, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,13 @@ export function FocusTimerView({ courses }: { courses: Course[] }) {
   // and only picks up a saved-in-progress session after mount (see the effect below).
   const [state, setState] = useState<TimerState>(DEFAULT_STATE);
   const [, forceTick] = useState(0);
+  // Stable reference — this component re-renders every 250ms while a timer is running (see the
+  // tick effect below), and an inline object literal would otherwise churn Base UI Select's
+  // internal store sync on every one of those renders.
+  const courseItems = useMemo(
+    () => ({ __none__: "No course", ...Object.fromEntries(courses.map((c) => [c.id, c.name])) }),
+    [courses]
+  );
   const stateRef = useRef(state);
   stateRef.current = state;
   const processedEndAtRef = useRef<number | null>(null);
@@ -180,6 +187,7 @@ export function FocusTimerView({ courses }: { courses: Course[] }) {
           <div className="space-y-1.5">
             <Label>Course</Label>
             <Select
+              items={courseItems}
               value={state.courseId ?? "__none__"}
               onValueChange={(v) => setState((p) => ({ ...p, courseId: v === "__none__" ? null : v }))}
             >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,13 +35,19 @@ export function NameDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function handleOpenChange(next: boolean) {
-    if (next) {
+  // This dialog is opened purely by the parent flipping `open` from outside (no internal
+  // Trigger), and Base UI's `onOpenChange` only fires for its own internally-detected close
+  // requests (Escape/backdrop/close button) — never for an externally-driven open. Reacting to
+  // the `open` prop directly (rather than a callback that never runs for this transition) is
+  // what makes a stale value from the last time this same instance was open actually reset —
+  // e.g. rename "Course A", close, rename a different row: without this, the input reopens
+  // showing "Course A" again instead of that row's own name.
+  useEffect(() => {
+    if (open) {
       setValue(initialValue);
       setError(null);
     }
-    onOpenChange(next);
-  }
+  }, [open, initialValue]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,7 +62,7 @@ export function NameDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
