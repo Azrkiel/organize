@@ -72,6 +72,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const shouldListenRef = useRef(false);
   const finalTranscriptRef = useRef("");
+  const interimTextRef = useRef(""); // mirrors interimText state for synchronous reads (see stopLiveTranscript)
   const startedAtRef = useRef<number | null>(null);
   const pausedAccumMsRef = useRef(0);
   const pausedAtRef = useRef<number | null>(null);
@@ -157,6 +158,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
           interim += text;
         }
       }
+      interimTextRef.current = interim;
       setInterimText(interim);
     };
     recognition.onerror = (event) => {
@@ -187,14 +189,45 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
     }
   }
 
-  function stopLiveTranscript() {
+  /** Stops the recognizer and waits for it to actually finish, instead of just firing `.stop()`
+   * and moving on. Calling `.stop()` makes the browser finalize whatever it was still holding as
+   * interim, but that arrives as an async `onresult` + `onend` some time later — reading
+   * `finalTranscriptRef` immediately after `.stop()` (the previous version of this function) races
+   * that and typically catches only whatever had already finalized on its own, which for a short
+   * recording can be almost nothing. This also folds in anything still-interim as a last resort,
+   * in case a browser's `onend` fires without ever finalizing the tail. */
+  function stopLiveTranscript(): Promise<void> {
     shouldListenRef.current = false;
-    recognitionRef.current?.stop();
-    recognitionRef.current = null;
     if (liveSaveIntervalRef.current) {
       clearInterval(liveSaveIntervalRef.current);
       liveSaveIntervalRef.current = null;
     }
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    if (!recognition) return Promise.resolve();
+
+    return new Promise((resolve) => {
+      let settled = false;
+      function finish() {
+        if (settled) return;
+        settled = true;
+        const leftover = interimTextRef.current.trim();
+        if (leftover && !finalTranscriptRef.current.endsWith(leftover)) {
+          finalTranscriptRef.current = (finalTranscriptRef.current ? finalTranscriptRef.current + " " : "") + leftover;
+          setLiveText(finalTranscriptRef.current);
+        }
+        interimTextRef.current = "";
+        setInterimText("");
+        resolve();
+      }
+      recognition.onend = finish;
+      try {
+        recognition.stop();
+      } catch {
+        finish();
+      }
+      setTimeout(finish, 1200); // safety net if `onend` never fires
+    });
   }
 
   async function handleStart() {
@@ -296,7 +329,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
       segmentTimeoutRef.current = null;
     }
     rotatingRef.current = false; // don't let a queued onstop open a new segment after we've stopped
-    stopLiveTranscript();
+    await stopLiveTranscript(); // waits for the recognizer to actually finalize before we save (see its own comment)
 
     const recorder = recorderRef.current;
     if (recorder && recorder.state !== "inactive") {
