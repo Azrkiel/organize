@@ -1,6 +1,12 @@
 import { getRecordingMeta, getSegmentChunks, getSegmentIndexes } from "@/lib/client/lecture-audio-db";
-import { concatenateChunks, decodeToMono16k } from "@/lib/client/audio-decode";
+import { computeRms, concatenateChunks, decodeToMono16k } from "@/lib/client/audio-decode";
 import type { WhisperRequest, WhisperResponse } from "@/lib/client/whisper.worker";
+
+// Whisper doesn't say nothing when given near-silent audio — it reliably hallucinates a short
+// filler word (classically "you"), a well-documented failure mode. Below this RMS level a
+// segment is skipped rather than sent to the model at all. Normal speech sits comfortably above
+// this; room tone / a muted or wrong input device sits at or below it.
+const SILENCE_RMS_THRESHOLD = 0.01;
 
 export type WhisperModelSize = "tiny" | "base" | "small";
 
@@ -47,6 +53,7 @@ export async function transcribeLecture({
       const chunks = await getSegmentChunks(lectureId, segmentIndexes[i]);
       const blob = concatenateChunks(chunks, mimeType);
       const audio = await decodeToMono16k(blob);
+      const segmentSeconds = audio.length / 16000;
 
       onProgress({
         phase: "transcribing",
@@ -55,6 +62,11 @@ export async function transcribeLecture({
         secondsDone,
         secondsTotal: totalDurationSeconds,
       });
+
+      if (computeRms(audio) < SILENCE_RMS_THRESHOLD) {
+        secondsDone += segmentSeconds;
+        continue;
+      }
 
       const id = ++requestId;
       const text = await new Promise<string>((resolve, reject) => {
@@ -77,10 +89,16 @@ export async function transcribeLecture({
       });
 
       parts.push(text);
-      secondsDone += audio.length / 16000;
+      secondsDone += segmentSeconds;
     }
   } finally {
     worker.terminate();
+  }
+
+  if (parts.length === 0) {
+    throw new Error(
+      "No speech was detected in this recording — every segment was near-silent. Check that your microphone actually picked up sound."
+    );
   }
 
   return parts.join("\n\n");

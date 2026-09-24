@@ -61,7 +61,10 @@ self.addEventListener("message", async (event: MessageEvent<WhisperRequest>) => 
     // PLAN.md Phase 9 task 4: keeps memory manageable on long lectures by never decoding the
     // whole thing in one generate() call — each segment is already ~10 minutes at most, and
     // this further slides a 30s window with 5s of overlap across it.
-    const output = await transcriber(audio, { chunk_length_s: 30, stride_length_s: 5 });
+    // `condition_on_previous_text: false` is Whisper's own documented mitigation against getting
+    // stuck repeating/hallucinating a filler word (classically "you") when it loses confidence —
+    // without it, a bad guess on one window can anchor every window after it in the same segment.
+    const output = await transcriber(audio, { chunk_length_s: 30, stride_length_s: 5, condition_on_previous_text: false });
     self.postMessage({ type: "result", requestId, text: output.text.trim() } satisfies WhisperResponse);
   } catch (err) {
     self.postMessage({

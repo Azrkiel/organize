@@ -19,15 +19,19 @@ import {
 import { createLecture, finishRecording, saveLiveTranscript } from "@/app/(app)/actions/lectures";
 import { ackRecordingPolicy } from "@/app/(app)/actions/lectures";
 import {
+  MIC_CONSTRAINTS,
+  createMicLevelMeter,
   getSpeechRecognitionCtor,
   persistStorage,
   pickAudioMimeType,
   requestWakeLock,
+  type MicLevelMeter,
   type SpeechRecognitionLike,
 } from "@/lib/client/lecture-recording-support";
 import { getInProgressRecordings, saveChunk, saveRecordingMeta, type RecordingMeta } from "@/lib/client/lecture-audio-db";
 import { generateLectureTitle } from "@/lib/lecture-title";
 import { formatClock } from "@/lib/focus-timer";
+import { cn } from "@/lib/utils";
 import type { Course } from "@/lib/types";
 
 const SEGMENT_MS = 10 * 60 * 1000; // Whisper decodes each segment on its own — see PLAN.md Phase 9 task 2.
@@ -52,6 +56,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
   const [error, setError] = useState<string | null>(null);
   const [savedLecture, setSavedLecture] = useState<{ id: string; title: string; courseId: string | null } | null>(null);
   const [resumable, setResumable] = useState<RecordingMeta[]>([]);
+  const [micLevel, setMicLevel] = useState(0);
 
   const courseItems = useMemo(
     () => ({ __none__: "No course", ...Object.fromEntries(courses.map((c) => [c.id, c.name])) }),
@@ -78,6 +83,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
   const pausedAtRef = useRef<number | null>(null);
   const liveSaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mimeTypeRef = useRef<string>("");
+  const micMeterRef = useRef<MicLevelMeter | null>(null);
 
   useEffect(() => {
     getInProgressRecordings()
@@ -90,7 +96,10 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
   // focus timer's countdown: a background tab throttles setInterval, but not Date.now().
   useEffect(() => {
     if (state !== "recording" && state !== "paused") return;
-    const id = setInterval(() => forceTick((t) => t + 1), TICK_MS);
+    const id = setInterval(() => {
+      forceTick((t) => t + 1);
+      setMicLevel(micMeterRef.current?.getLevel() ?? 0);
+    }, TICK_MS);
     return () => clearInterval(id);
   }, [state]);
 
@@ -249,7 +258,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
   async function beginNewRecording() {
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: MIC_CONSTRAINTS });
     } catch {
       setError("Couldn't access the microphone. Check your browser's permission for this site.");
       return;
@@ -263,6 +272,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
     }
 
     streamRef.current = stream;
+    micMeterRef.current = createMicLevelMeter(stream);
     lectureIdRef.current = result.id;
     mimeTypeRef.current = pickAudioMimeType();
     segmentIndexRef.current = 0;
@@ -340,6 +350,9 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
     }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    micMeterRef.current?.stop();
+    micMeterRef.current = null;
+    setMicLevel(0);
     wakeLockRef.current?.release().catch(() => {});
     wakeLockRef.current = null;
 
@@ -370,13 +383,14 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
     setError(null);
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: MIC_CONSTRAINTS });
     } catch {
       setError("Couldn't access the microphone to continue the recording.");
       return;
     }
     setResumable((prev) => prev.filter((r) => r.lectureId !== meta.lectureId));
     streamRef.current = stream;
+    micMeterRef.current = createMicLevelMeter(stream);
     lectureIdRef.current = meta.lectureId;
     setCourseId(meta.courseId);
     setTitle(meta.title);
@@ -499,6 +513,29 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
             )}
             <p className="font-mono text-6xl font-semibold tabular-nums tracking-tight">{formatClock(elapsedSeconds)}</p>
           </div>
+
+          {recording && (
+            <div className="mx-auto max-w-xs space-y-1">
+              <div
+                className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                role="meter"
+                aria-label="Microphone input level"
+                aria-valuenow={Math.round(micLevel * 100)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  className={cn("h-full transition-[width]", micLevel < 0.01 ? "bg-destructive" : "bg-primary")}
+                  style={{ width: `${Math.min(100, Math.round(micLevel * 400))}%` }}
+                />
+              </div>
+              {elapsedSeconds > 3 && micLevel < 0.01 && (
+                <p className="text-xs text-destructive">
+                  No sound detected from your microphone — check the right input device is selected and isn&apos;t muted.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-center gap-2">
             {idle && (

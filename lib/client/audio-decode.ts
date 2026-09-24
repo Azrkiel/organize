@@ -8,6 +8,17 @@ export function concatenateChunks(chunks: Blob[], mimeType: string): Blob {
   return new Blob(chunks, { type: mimeType });
 }
 
+/** Root-mean-square level of a PCM buffer, roughly 0 (silence) to ~1 (full scale). Pure math, so
+ * unlike the rest of this file it's unit-tested directly — used to skip feeding near-silent audio
+ * to Whisper, which otherwise reliably hallucinates a short filler word (classically "you") on
+ * silence rather than saying nothing (a well-documented Whisper failure mode). */
+export function computeRms(samples: Float32Array): number {
+  if (samples.length === 0) return 0;
+  let sumSquares = 0;
+  for (let i = 0; i < samples.length; i++) sumSquares += samples[i] * samples[i];
+  return Math.sqrt(sumSquares / samples.length);
+}
+
 /** Decodes a compressed audio Blob (webm/opus, mp4/aac, ...) to 16kHz mono PCM, the format
  * Whisper expects. Uses a real-time AudioContext to decode the container/codec, then an
  * OfflineAudioContext to resample + downmix to 16kHz mono (PLAN.md Phase 9 task 4). */

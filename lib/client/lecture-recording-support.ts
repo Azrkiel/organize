@@ -1,5 +1,54 @@
 /** Browser feature-detection helpers for lecture recording (PLAN.md Phase 9 tasks 1-3). */
 
+/** Explicit mic constraints rather than a bare `{ audio: true }` — the same baseline every serious
+ * browser recording/notetaking tool (Meet, Zoom, Granola, ...) asks for: cancel the laptop's own
+ * speaker bleed, suppress steady background noise, and auto-normalize a quiet voice, instead of
+ * leaving it to whatever the browser's bare defaults happen to be. None of this fixes a genuinely
+ * silent or wrong input device — see `createMicLevelMeter` below for surfacing that. */
+export const MIC_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  channelCount: 1,
+};
+
+export type MicLevelMeter = { getLevel: () => number; stop: () => void };
+
+/** A live 0-1 mic input level off an already-acquired stream. Recording apps show this (or
+ * something like it) specifically so a muted/wrong/disconnected mic is obvious immediately, rather
+ * than only discovered afterward as a garbled or near-empty transcript. */
+export function createMicLevelMeter(stream: MediaStream): MicLevelMeter | null {
+  const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextCtor) return null;
+
+  const ctx = new AudioContextCtor();
+  const source = ctx.createMediaStreamSource(stream);
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 512;
+  analyser.smoothingTimeConstant = 0.6;
+  source.connect(analyser);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+
+  function getLevel(): number {
+    analyser.getByteTimeDomainData(data);
+    let sumSquares = 0;
+    for (let i = 0; i < data.length; i++) {
+      const centered = (data[i] - 128) / 128;
+      sumSquares += centered * centered;
+    }
+    return Math.sqrt(sumSquares / data.length);
+  }
+
+  function stop() {
+    try {
+      source.disconnect();
+    } catch {}
+    ctx.close().catch(() => {});
+  }
+
+  return { getLevel, stop };
+}
+
 /** Picks the best-supported MediaRecorder mime type: webm/opus on Chrome/Edge/Firefox, mp4/aac on
  * Safari. Returns "" when nothing matches (or MediaRecorder itself doesn't exist), in which case
  * the caller should construct MediaRecorder without an explicit mimeType and let the browser pick. */
