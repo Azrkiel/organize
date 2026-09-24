@@ -6,6 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { DisconnectButton } from "@/components/settings/disconnect-button";
 import { DigestForm } from "@/components/settings/digest-form";
 import { ExportButton } from "@/components/settings/export-button";
+import { LectureAudioCleanup } from "@/components/settings/lecture-audio-cleanup";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
@@ -121,6 +122,8 @@ export default async function SettingsPage({
           </>
         )}
       </div>
+
+      <LectureAudioCleanup />
 
       {process.env.RESEND_API_KEY && auth.user && (
         <div className="space-y-3 rounded-lg border p-4">

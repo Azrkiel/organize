@@ -24,6 +24,7 @@ import {
   Layers,
   LogOut,
   Menu,
+  Mic,
   PanelLeft,
   RotateCcw,
   Search,
@@ -47,6 +48,7 @@ const COLLAPSED_KEY = "organize:sidebar-collapsed";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/record", label: "Record", icon: Mic },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/review", label: "Review", icon: RotateCcw },
@@ -55,11 +57,12 @@ const NAV_ITEMS = [
   { href: "/unfiled", label: "Unfiled", icon: Inbox },
 ] as const;
 
-// A curated subset for the mobile bottom bar (PLAN.md Phase 8 task 2) — the full nav has grown
-// to 7 items since this task was written; everything else stays one tap away via the drawer.
-// "Notes" points at /unfiled, the app's one general-purpose (not course-scoped) notes list.
+// A curated subset for the mobile bottom bar (PLAN.md Phase 8 task 2, Record added in Phase 9) —
+// the full nav has grown past this since Phase 8 was written; everything else stays one tap away
+// via the drawer.  "Notes" points at /unfiled, the app's one general-purpose notes list.
 const BOTTOM_NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/record", label: "Record", icon: Mic },
   { href: "/unfiled", label: "Notes", icon: Inbox },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },

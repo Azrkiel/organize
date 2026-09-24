@@ -1,0 +1,36 @@
+/**
+ * Browser-only audio decoding for the Whisper pipeline (PLAN.md Phase 9 task 4). Not unit-tested
+ * for the same reason as lecture-audio-db.ts — jsdom has no real Web Audio implementation.
+ */
+
+/** Joins one segment's IndexedDB-stored chunks back into a single decodable file. */
+export function concatenateChunks(chunks: Blob[], mimeType: string): Blob {
+  return new Blob(chunks, { type: mimeType });
+}
+
+/** Decodes a compressed audio Blob (webm/opus, mp4/aac, ...) to 16kHz mono PCM, the format
+ * Whisper expects. Uses a real-time AudioContext to decode the container/codec, then an
+ * OfflineAudioContext to resample + downmix to 16kHz mono (PLAN.md Phase 9 task 4). */
+export async function decodeToMono16k(blob: Blob): Promise<Float32Array> {
+  const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextCtor) throw new Error("This browser doesn't support Web Audio decoding.");
+
+  const arrayBuffer = await blob.arrayBuffer();
+  const decodeCtx = new AudioContextCtor();
+  let decoded: AudioBuffer;
+  try {
+    decoded = await decodeCtx.decodeAudioData(arrayBuffer);
+  } finally {
+    await decodeCtx.close().catch(() => {});
+  }
+
+  const targetSampleRate = 16000;
+  const targetLength = Math.max(1, Math.ceil(decoded.duration * targetSampleRate));
+  const offlineCtx = new OfflineAudioContext(1, targetLength, targetSampleRate);
+  const source = offlineCtx.createBufferSource();
+  source.buffer = decoded;
+  source.connect(offlineCtx.destination);
+  source.start(0);
+  const rendered = await offlineCtx.startRendering();
+  return rendered.getChannelData(0);
+}

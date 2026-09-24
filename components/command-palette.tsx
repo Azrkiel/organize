@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, CheckSquare, FileText, Plus } from "lucide-react";
+import { BookOpen, CheckSquare, FileText, Mic, Plus } from "lucide-react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -18,8 +18,7 @@ import type { Course } from "@/lib/types";
 
 /**
  * Ctrl/Cmd+K search: notes and tasks via `search_all`, plus jumping to a course, "New note",
- * or "New task" (PLAN.md Phase 6 task 2). Palette actions for features that don't exist yet
- * (flashcards, lectures, "Record lecture") are added in the phases that build them.
+ * "New task", or "Record lecture" (PLAN.md Phase 6 task 2, Record added in Phase 9 task 1).
  */
 export function CommandPalette({
   courses,
@@ -131,6 +130,9 @@ export function CommandPalette({
             </CommandItem>
             <CommandItem value="new-task" onSelect={() => go("/tasks")}>
               <Plus /> New task
+            </CommandItem>
+            <CommandItem value="record-lecture" onSelect={() => go("/record")}>
+              <Mic /> Record lecture
             </CommandItem>
           </CommandGroup>
         )}

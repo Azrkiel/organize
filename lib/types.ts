@@ -10,6 +10,7 @@ export type Task = Tables["tasks"]["Row"];
 export type Event = Tables["events"]["Row"];
 export type Flashcard = Tables["flashcards"]["Row"];
 export type FocusSession = Tables["focus_sessions"]["Row"];
+export type Lecture = Tables["lectures"]["Row"];
 
 /** A task plus its linked deadline event's calendar-sync status, if it has one. */
 export type TaskWithSync = Task & { syncError: string | null };
