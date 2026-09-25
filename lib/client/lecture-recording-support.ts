@@ -12,6 +12,24 @@ export const MIC_CONSTRAINTS: MediaTrackConstraints = {
   channelCount: 1,
 };
 
+export type AudioInputDevice = { deviceId: string; label: string };
+
+/** Every audio input Chrome can see, labeled — only meaningfully labeled once mic permission has
+ * already been granted at least once (a fresh, never-asked page gets blank labels, harmless).
+ * Exists because "whatever the OS/browser currently calls the default input" isn't reliable:
+ * confirmed live that a laptop with bundled audio-enhancement software (MSI Sound Tune, similar
+ * tools exist from Dell/Lenovo/Realtek) can default Chrome to a virtual/loopback device that
+ * reports a perfectly healthy MediaStreamTrack — not muted, not ended — while producing exactly
+ * zero signal, with the real hardware mic sitting right next to it in the device list, unused. */
+export async function listAudioInputDevices(): Promise<AudioInputDevice[]> {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return devices.filter((d) => d.kind === "audioinput").map((d) => ({ deviceId: d.deviceId, label: d.label || "Microphone" }));
+  } catch {
+    return [];
+  }
+}
+
 export type MicLevelMeter = { getLevel: () => number; stop: () => void };
 
 /** A live 0-1 mic input level off an already-acquired stream. Recording apps show this (or

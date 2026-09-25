@@ -22,9 +22,11 @@ import {
   MIC_CONSTRAINTS,
   createMicLevelMeter,
   getSpeechRecognitionCtor,
+  listAudioInputDevices,
   persistStorage,
   pickAudioMimeType,
   requestWakeLock,
+  type AudioInputDevice,
   type MicLevelMeter,
   type SpeechRecognitionLike,
 } from "@/lib/client/lecture-recording-support";
@@ -36,6 +38,7 @@ import type { Course } from "@/lib/types";
 
 const SEGMENT_MS = 10 * 60 * 1000; // Whisper decodes each segment on its own — see PLAN.md Phase 9 task 2.
 const CHUNK_TIMESLICE_MS = 10_000; // MediaRecorder flushes to IndexedDB this often.
+const MIC_DEVICE_KEY = "organize:mic-device-id";
 const LIVE_SAVE_INTERVAL_MS = 30_000;
 const TICK_MS = 500;
 
@@ -57,6 +60,10 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
   const [savedLecture, setSavedLecture] = useState<{ id: string; title: string; courseId: string | null } | null>(null);
   const [resumable, setResumable] = useState<RecordingMeta[]>([]);
   const [micLevel, setMicLevel] = useState(0);
+  const [micDevices, setMicDevices] = useState<AudioInputDevice[]>([]);
+  // null means "system default" — matches until an effect reads a saved choice from localStorage
+  // after mount, same server/client-match pattern as the sidebar's collapsed state.
+  const [micDeviceId, setMicDeviceId] = useState<string | null>(null);
 
   const courseItems = useMemo(
     () => ({ __none__: "No course", ...Object.fromEntries(courses.map((c) => [c.id, c.name])) }),
@@ -89,7 +96,29 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
     getInProgressRecordings()
       .then(setResumable)
       .catch(() => {});
+    listAudioInputDevices()
+      .then(setMicDevices)
+      .catch(() => {});
+    try {
+      const saved = localStorage.getItem(MIC_DEVICE_KEY);
+      if (saved) setMicDeviceId(saved);
+    } catch {}
   }, []);
+
+  function handleMicDeviceChange(value: string | null) {
+    const next = value === "__default__" || value === null ? null : value;
+    setMicDeviceId(next);
+    try {
+      if (next) localStorage.setItem(MIC_DEVICE_KEY, next);
+      else localStorage.removeItem(MIC_DEVICE_KEY);
+    } catch {}
+  }
+
+  // "" defers to whatever Chrome currently calls its default input — deliberately overridable
+  // (see listAudioInputDevices's own comment on why the OS/browser default isn't always trustworthy).
+  function micConstraints(): MediaTrackConstraints {
+    return micDeviceId !== null ? { ...MIC_CONSTRAINTS, deviceId: { exact: micDeviceId } } : MIC_CONSTRAINTS;
+  }
 
   // Ticks the visible clock; the actual elapsed time is always re-derived from startedAt/paused
   // bookkeeping (computeElapsedMs), never a counted-up local variable — the same reasoning as the
@@ -258,7 +287,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
   async function beginNewRecording() {
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: MIC_CONSTRAINTS });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints() });
     } catch {
       setError("Couldn't access the microphone. Check your browser's permission for this site.");
       return;
@@ -383,7 +412,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
     setError(null);
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: MIC_CONSTRAINTS });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints() });
     } catch {
       setError("Couldn't access the microphone to continue the recording.");
       return;
@@ -501,6 +530,32 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
                 <Label htmlFor="lecture-title">Title</Label>
                 <Input id="lecture-title" value={title} onChange={(e) => handleTitleChange(e.target.value)} />
               </div>
+              {micDevices.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Microphone</Label>
+                  <Select
+                    items={{ __default__: "System default", ...Object.fromEntries(micDevices.map((d) => [d.deviceId, d.label])) }}
+                    value={micDeviceId ?? "__default__"}
+                    onValueChange={handleMicDeviceChange}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="System default" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__default__">System default</SelectItem>
+                      {micDevices.map((d) => (
+                        <SelectItem key={d.deviceId} value={d.deviceId}>
+                          {d.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    If the level bar below stays flat while recording, try picking your real microphone here instead of
+                    the system default — some laptops&apos; bundled audio software defaults to a virtual device.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
