@@ -19,6 +19,19 @@ export function computeRms(samples: Float32Array): number {
   return Math.sqrt(sumSquares / samples.length);
 }
 
+/** Maps a linear 0-1 RMS level to a 0-100 meter percent on a dBFS scale — the same kind of scale
+ * OBS/Audacity/any real audio meter uses, rather than a straight linear map. Linear scaling makes
+ * normal speech (RMS often only ~0.02-0.1) barely move a bar at all, since most of a mic's usable
+ * range sits in the bottom few percent of linear amplitude; a dB scale spreads that out so a
+ * quiet-but-real voice visibly moves the meter instead of looking dead. `minDb` is the level
+ * mapped to 0% (a very quiet room is usually well below -50dBFS on a laptop mic; 0dBFS is full scale). */
+export function rmsToMeterPercent(rms: number, minDb = -55): number {
+  if (rms <= 0) return 0;
+  const db = 20 * Math.log10(rms);
+  const percent = ((db - minDb) / -minDb) * 100;
+  return Math.max(0, Math.min(100, percent));
+}
+
 /** Decodes a compressed audio Blob (webm/opus, mp4/aac, ...) to 16kHz mono PCM, the format
  * Whisper expects. Uses a real-time AudioContext to decode the container/codec, then an
  * OfflineAudioContext to resample + downmix to 16kHz mono (PLAN.md Phase 9 task 4). */

@@ -31,6 +31,7 @@ import {
   type SpeechRecognitionLike,
 } from "@/lib/client/lecture-recording-support";
 import { getInProgressRecordings, saveChunk, saveRecordingMeta, type RecordingMeta } from "@/lib/client/lecture-audio-db";
+import { rmsToMeterPercent } from "@/lib/client/audio-decode";
 import { generateLectureTitle } from "@/lib/lecture-title";
 import { formatClock } from "@/lib/focus-timer";
 import { cn } from "@/lib/utils";
@@ -59,7 +60,9 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
   const [error, setError] = useState<string | null>(null);
   const [savedLecture, setSavedLecture] = useState<{ id: string; title: string; courseId: string | null } | null>(null);
   const [resumable, setResumable] = useState<RecordingMeta[]>([]);
-  const [micLevel, setMicLevel] = useState(0);
+  const [micLevel, setMicLevel] = useState(0); // raw 0-1 RMS, used only for the silence check
+  const [meterPercent, setMeterPercent] = useState(0); // 0-100, dB-scaled + ballistics, for the visible bar
+  const meterPercentRef = useRef(0);
   const [micDevices, setMicDevices] = useState<AudioInputDevice[]>([]);
   // null means "system default" — matches until an effect reads a saved choice from localStorage
   // after mount, same server/client-match pattern as the sidebar's collapsed state.
@@ -127,7 +130,13 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
     if (state !== "recording" && state !== "paused") return;
     const id = setInterval(() => {
       forceTick((t) => t + 1);
-      setMicLevel(micMeterRef.current?.getLevel() ?? 0);
+      const rawLevel = micMeterRef.current?.getLevel() ?? 0;
+      setMicLevel(rawLevel);
+      // Fast attack, slower decay — an OBS/Audacity-style "peak meter" feel rather than a value
+      // that either jumps straight to 0 between syllables or barely twitches on quiet speech.
+      const target = rmsToMeterPercent(rawLevel);
+      meterPercentRef.current = target > meterPercentRef.current ? target : meterPercentRef.current * 0.75 + target * 0.25;
+      setMeterPercent(meterPercentRef.current);
     }, TICK_MS);
     return () => clearInterval(id);
   }, [state]);
@@ -382,6 +391,8 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
     micMeterRef.current?.stop();
     micMeterRef.current = null;
     setMicLevel(0);
+    meterPercentRef.current = 0;
+    setMeterPercent(0);
     wakeLockRef.current?.release().catch(() => {});
     wakeLockRef.current = null;
 
@@ -572,16 +583,19 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
           {recording && (
             <div className="mx-auto max-w-xs space-y-1">
               <div
-                className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                className="h-2 w-full overflow-hidden rounded-full bg-muted"
                 role="meter"
                 aria-label="Microphone input level"
-                aria-valuenow={Math.round(micLevel * 100)}
+                aria-valuenow={Math.round(meterPercent)}
                 aria-valuemin={0}
                 aria-valuemax={100}
               >
                 <div
-                  className={cn("h-full transition-[width]", micLevel < 0.01 ? "bg-destructive" : "bg-primary")}
-                  style={{ width: `${Math.min(100, Math.round(micLevel * 400))}%` }}
+                  className={cn(
+                    "h-full transition-[width] duration-75",
+                    meterPercent > 85 ? "bg-destructive" : meterPercent > 65 ? "bg-amber-500" : "bg-emerald-500"
+                  )}
+                  style={{ width: `${Math.round(meterPercent)}%` }}
                 />
               </div>
               {elapsedSeconds > 3 && micLevel < 0.01 && (
@@ -619,11 +633,22 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
             <div className="rounded-lg border p-4">
               <p className="mb-2 text-xs font-medium text-muted-foreground">Live transcript</p>
               {speechSupported ? (
-                <p className="max-h-48 overflow-y-auto text-sm leading-relaxed whitespace-pre-wrap">
-                  {liveText}
-                  <span className="text-muted-foreground">{liveText && interimText ? " " : ""}{interimText}</span>
-                  {!liveText && !interimText && <span className="text-muted-foreground">Listening…</span>}
-                </p>
+                <>
+                  <p className="max-h-48 overflow-y-auto text-sm leading-relaxed whitespace-pre-wrap">
+                    {liveText}
+                    <span className="text-muted-foreground">{liveText && interimText ? " " : ""}{interimText}</span>
+                    {!liveText && !interimText && <span className="text-muted-foreground">Listening…</span>}
+                  </p>
+                  {recording && elapsedSeconds > 8 && !liveText && !interimText && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Nothing yet, even though the level bar above is moving? Live transcript always uses your
+                      system&apos;s <em>default</em> microphone — it can&apos;t use the device picked above, since the
+                      browser doesn&apos;t let a website choose one for it. If your Windows/Chrome default input still
+                      isn&apos;t your real mic, this will stay empty even while recording works fine. The accurate
+                      transcript after class isn&apos;t affected either way.
+                    </p>
+                  )}
+                </>
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Live transcription isn&apos;t supported in this browser. The accurate transcript will still work after class.
