@@ -22,6 +22,12 @@ export function createMicLevelMeter(stream: MediaStream): MicLevelMeter | null {
   if (!AudioContextCtor) return null;
 
   const ctx = new AudioContextCtor();
+  // A freshly created AudioContext can start "suspended" under a browser's autoplay policy,
+  // especially this far into an async chain (getUserMedia + a server round trip already
+  // happened) rather than synchronously inside the original click. A suspended context never
+  // processes audio at all, so the analyser would report flat silence regardless of whether the
+  // mic itself is working — resume it explicitly rather than assuming "running".
+  ctx.resume().catch(() => {});
   const source = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 512;
@@ -30,6 +36,10 @@ export function createMicLevelMeter(stream: MediaStream): MicLevelMeter | null {
   const data = new Uint8Array(analyser.frequencyBinCount);
 
   function getLevel(): number {
+    if (ctx.state !== "running") {
+      ctx.resume().catch(() => {});
+      return 0;
+    }
     analyser.getByteTimeDomainData(data);
     let sumSquares = 0;
     for (let i = 0; i < data.length; i++) {
