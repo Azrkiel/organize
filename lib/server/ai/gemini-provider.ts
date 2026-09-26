@@ -42,7 +42,17 @@ export class GeminiLectureNotesProvider implements LectureNotesProvider {
       if (!text) throw new Error("Gemini returned an empty response.");
       return text;
     } catch (err) {
-      if (err instanceof ApiError && err.status === 429) throw new RateLimitError();
+      if (err instanceof ApiError) {
+        // ApiError's own .message is the raw JSON error body from Google's API (confirmed live:
+        // an invalid key surfaced as a wall of {"error":{"code":400,...}} text in the UI) — never
+        // show that directly. Log the real thing server-side, surface something a person can act on.
+        console.error("Gemini API error", err.status, err.message);
+        if (err.status === 429) throw new RateLimitError();
+        if (err.status === 400 || err.status === 401 || err.status === 403) {
+          throw new Error("Gemini rejected the request — GEMINI_API_KEY is likely missing, invalid, or revoked.");
+        }
+        throw new Error(`Gemini API error (${err.status}). Check the Vercel function logs for details.`);
+      }
       throw err;
     }
   }
