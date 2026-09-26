@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { NameDialog } from "@/components/sidebar/name-dialog";
 import { TranscribeButton } from "@/components/lectures/transcribe-button";
 import { LocalAudioPanel } from "@/components/lectures/local-audio-panel";
+import { GenerateNotesPanel } from "@/components/lectures/generate-notes-panel";
 import { renameLecture, saveImportedTranscript } from "@/app/(app)/actions/lectures";
 import { parseTranscriptFile } from "@/lib/transcript-import";
 import { formatDuration } from "@/lib/format-duration";
@@ -53,10 +54,12 @@ export function LectureDetail({
   lecture,
   course,
   defaultModelSize,
+  geminiConfigured,
 }: {
   lecture: Lecture;
   course: { id: string; name: string; color: string } | null;
   defaultModelSize: WhisperModelSize;
+  geminiConfigured: boolean;
 }) {
   const router = useRouter();
   const [renameOpen, setRenameOpen] = useState(false);
@@ -165,6 +168,17 @@ export function LectureDetail({
         durationSeconds={lecture.duration_seconds}
         defaultModelSize={defaultModelSize}
       />
+
+      {transcriptText &&
+        (lecture.note_id ? (
+          <div className="rounded-lg border p-4">
+            <Link href={`/notes/${lecture.note_id}`} className="text-sm font-medium hover:underline">
+              View generated note →
+            </Link>
+          </div>
+        ) : (
+          <GenerateNotesPanel lectureId={lecture.id} courseId={lecture.course_id} geminiConfigured={geminiConfigured} />
+        ))}
 
       <LocalAudioPanel lectureId={lecture.id} refreshKey={lecture.updated_at} />
 

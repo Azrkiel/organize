@@ -21,7 +21,12 @@ export default async function LecturePage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-6">
-      <LectureDetail lecture={lecture} course={course} defaultModelSize={(settings?.whisper_model_size as "tiny" | "base" | "small") ?? "base"} />
+      <LectureDetail
+        lecture={lecture}
+        course={course}
+        defaultModelSize={(settings?.whisper_model_size as "tiny" | "base" | "small") ?? "base"}
+        geminiConfigured={Boolean(process.env.GEMINI_API_KEY)}
+      />
     </div>
   );
 }
