@@ -169,16 +169,14 @@ export function LectureDetail({
         defaultModelSize={defaultModelSize}
       />
 
-      {transcriptText &&
-        (lecture.note_id ? (
-          <div className="rounded-lg border p-4">
-            <Link href={`/notes/${lecture.note_id}`} className="text-sm font-medium hover:underline">
-              View generated note →
-            </Link>
-          </div>
-        ) : (
-          <GenerateNotesPanel lectureId={lecture.id} courseId={lecture.course_id} geminiConfigured={geminiConfigured} />
-        ))}
+      {transcriptText && (
+        <GenerateNotesPanel
+          lectureId={lecture.id}
+          courseId={lecture.course_id}
+          geminiConfigured={geminiConfigured}
+          initialNoteId={lecture.note_id}
+        />
+      )}
 
       <LocalAudioPanel lectureId={lecture.id} refreshKey={lecture.updated_at} />
 

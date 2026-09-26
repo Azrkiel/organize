@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Copy, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,15 +21,26 @@ import type { FlashcardSuggestion } from "@/lib/flashcard-suggestions";
 
 /** "Generate notes" (real Gemini path) or, with no API key configured, "Copy prompt for Claude" +
  * "Paste notes" (PLAN.md Phase 10 tasks 1, 3, 5, 6). Both paths end at the same place: a created
- * note plus an optional flashcard review dialog. */
+ * note plus an optional flashcard review dialog.
+ *
+ * This component stays mounted and renders its own "already has a note" branch internally
+ * (`noteId`), rather than the parent swapping it out for a separate link component once
+ * `lecture.note_id` is set. It used to be the latter — but `handleResult` calls `router.refresh()`
+ * right as it opens the flashcard review dialog, and that refresh delivers the new `note_id` to
+ * the parent fast enough to unmount this component (dialog state and all) before the dialog ever
+ * got to show. Confirmed live: the note saved correctly every time, but the review dialog never
+ * appeared. Keeping one stable component whether or not a note exists yet means the parent's
+ * refresh just updates a prop, not this component's identity. */
 export function GenerateNotesPanel({
   lectureId,
   courseId,
   geminiConfigured,
+  initialNoteId,
 }: {
   lectureId: string;
   courseId: string | null;
   geminiConfigured: boolean;
+  initialNoteId: string | null;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -38,12 +50,15 @@ export function GenerateNotesPanel({
   const [pasteValue, setPasteValue] = useState("");
   const [reviewNoteId, setReviewNoteId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<FlashcardSuggestion[]>([]);
+  const [createdNoteId, setCreatedNoteId] = useState<string | null>(null);
+  const noteId = createdNoteId ?? initialNoteId;
 
   function handleResult(result: { error?: string; rateLimited?: boolean; noteId?: string; suggestions?: FlashcardSuggestion[] }) {
     if (result.error) {
       setError(result.error);
       return;
     }
+    if (result.noteId) setCreatedNoteId(result.noteId);
     router.refresh();
     if (result.suggestions && result.suggestions.length > 0 && result.noteId) {
       setSuggestions(result.suggestions);
@@ -97,7 +112,11 @@ export function GenerateNotesPanel({
     <div className="space-y-3 rounded-lg border p-4">
       <p className="text-sm font-medium text-muted-foreground">Notes</p>
 
-      {geminiConfigured ? (
+      {noteId ? (
+        <Link href={`/notes/${noteId}`} className="text-sm font-medium hover:underline">
+          View generated note →
+        </Link>
+      ) : geminiConfigured ? (
         <Button size="sm" onClick={handleGenerate} disabled={pending}>
           <Sparkles className="size-4" /> {pending ? "Generating…" : "Generate notes"}
         </Button>
