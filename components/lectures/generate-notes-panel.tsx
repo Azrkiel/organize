@@ -53,17 +53,29 @@ export function GenerateNotesPanel({
   const [createdNoteId, setCreatedNoteId] = useState<string | null>(null);
   const noteId = createdNoteId ?? initialNoteId;
 
-  function handleResult(result: { error?: string; rateLimited?: boolean; noteId?: string; suggestions?: FlashcardSuggestion[] }) {
+  type NoteResult = { error?: string; rateLimited?: boolean; noteId?: string; suggestions?: FlashcardSuggestion[] };
+
+  /** Opening the review dialog is deferred to the next tick rather than done in the same render
+   * as closing another dialog (the Paste dialog, on the paste-notes path). Confirmed live: with
+   * both happening in one render, the note always saved correctly, but the review dialog's own
+   * `open` state silently never took — Base UI's dialog handling doesn't cleanly support one
+   * dialog opening in the exact instant a sibling one closes. A tick's delay sidesteps it
+   * entirely and isn't perceptible. */
+  function handleResult(result: NoteResult): boolean {
     if (result.error) {
       setError(result.error);
-      return;
+      return false;
     }
     if (result.noteId) setCreatedNoteId(result.noteId);
     router.refresh();
     if (result.suggestions && result.suggestions.length > 0 && result.noteId) {
-      setSuggestions(result.suggestions);
-      setReviewNoteId(result.noteId);
+      const { suggestions: picked, noteId: id } = result;
+      setTimeout(() => {
+        setSuggestions(picked);
+        setReviewNoteId(id);
+      }, 0);
     }
+    return true;
   }
 
   async function handleGenerate() {
