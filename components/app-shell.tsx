@@ -17,6 +17,7 @@ import {
 import { arrayMove } from "@dnd-kit/sortable";
 import {
   CalendarDays,
+  Camera,
   CheckSquare,
   FileText,
   Home,
@@ -63,6 +64,7 @@ const NAV_ITEMS = [
 const BOTTOM_NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/record", label: "Record", icon: Mic },
+  { href: "/capture", label: "Capture", icon: Camera },
   { href: "/unfiled", label: "Notes", icon: Inbox },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },

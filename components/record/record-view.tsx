@@ -32,6 +32,7 @@ import {
 } from "@/lib/client/lecture-recording-support";
 import { getInProgressRecordings, saveChunk, saveRecordingMeta, type RecordingMeta } from "@/lib/client/lecture-audio-db";
 import { rmsToMeterPercent } from "@/lib/client/audio-decode";
+import { QrPairingCard } from "@/components/record/qr-pairing-card";
 import { generateLectureTitle } from "@/lib/lecture-title";
 import { formatClock } from "@/lib/focus-timer";
 import { cn } from "@/lib/utils";
@@ -59,6 +60,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
   const [speechSupported, setSpeechSupported] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savedLecture, setSavedLecture] = useState<{ id: string; title: string; courseId: string | null } | null>(null);
+  const [activeLectureId, setActiveLectureId] = useState<string | null>(null); // drives the QR pairing card
   const [resumable, setResumable] = useState<RecordingMeta[]>([]);
   const [micLevel, setMicLevel] = useState(0); // raw 0-1 RMS, used only for the silence check
   const [meterPercent, setMeterPercent] = useState(0); // 0-100, dB-scaled + ballistics, for the visible bar
@@ -312,6 +314,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
     streamRef.current = stream;
     micMeterRef.current = createMicLevelMeter(stream);
     lectureIdRef.current = result.id;
+    setActiveLectureId(result.id);
     mimeTypeRef.current = pickAudioMimeType();
     segmentIndexRef.current = 0;
     startedAtRef.current = Date.now();
@@ -415,6 +418,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
     }
 
     setSavedLecture(lectureId ? { id: lectureId, title: finishedTitle, courseId: finishedCourseId } : null);
+    setActiveLectureId(null);
     setState("finished");
     router.refresh();
   }
@@ -432,6 +436,7 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
     streamRef.current = stream;
     micMeterRef.current = createMicLevelMeter(stream);
     lectureIdRef.current = meta.lectureId;
+    setActiveLectureId(meta.lectureId);
     setCourseId(meta.courseId);
     setTitle(meta.title);
     mimeTypeRef.current = meta.mimeType;
@@ -628,6 +633,8 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
               </Button>
             )}
           </div>
+
+          {(recording || paused) && activeLectureId && <QrPairingCard lectureId={activeLectureId} />}
 
           {!idle && (
             <div className="rounded-lg border p-4">

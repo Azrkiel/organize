@@ -346,6 +346,93 @@ export type Database = {
         }
         Relationships: []
       }
+      lecture_photos: {
+        Row: {
+          caption: string | null
+          course_id: string | null
+          created_at: string
+          id: string
+          lecture_id: string | null
+          offset_seconds: number | null
+          slide_text: string | null
+          storage_path: string
+          taken_at: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          lecture_id?: string | null
+          offset_seconds?: number | null
+          slide_text?: string | null
+          storage_path: string
+          taken_at?: string
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          lecture_id?: string | null
+          offset_seconds?: number | null
+          slide_text?: string | null
+          storage_path?: string
+          taken_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lecture_photos_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lecture_photos_lecture_id_fkey"
+            columns: ["lecture_id"]
+            isOneToOne: false
+            referencedRelation: "lectures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lecture_topics: {
+        Row: {
+          lecture_id: string
+          topic_id: string
+          user_id: string
+        }
+        Insert: {
+          lecture_id: string
+          topic_id: string
+          user_id: string
+        }
+        Update: {
+          lecture_id?: string
+          topic_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lecture_topics_lecture_id_fkey"
+            columns: ["lecture_id"]
+            isOneToOne: false
+            referencedRelation: "lectures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lecture_topics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lectures: {
         Row: {
           course_id: string | null
@@ -358,6 +445,7 @@ export type Database = {
           title: string
           transcript: string | null
           transcript_live: string | null
+          transcript_segments: Json | null
           transcript_source: string | null
           updated_at: string
           user_id: string
@@ -373,6 +461,7 @@ export type Database = {
           title: string
           transcript?: string | null
           transcript_live?: string | null
+          transcript_segments?: Json | null
           transcript_source?: string | null
           updated_at?: string
           user_id: string
@@ -388,6 +477,7 @@ export type Database = {
           title?: string
           transcript?: string | null
           transcript_live?: string | null
+          transcript_segments?: Json | null
           transcript_source?: string | null
           updated_at?: string
           user_id?: string
@@ -469,6 +559,118 @@ export type Database = {
           },
         ]
       }
+      practice_questions: {
+        Row: {
+          answer: string
+          choices: Json | null
+          course_id: string
+          created_at: string
+          difficulty: number
+          explanation: string | null
+          id: string
+          question: string
+          source_lecture_id: string | null
+          study_guide_id: string | null
+          topic_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          answer: string
+          choices?: Json | null
+          course_id: string
+          created_at?: string
+          difficulty?: number
+          explanation?: string | null
+          id?: string
+          question: string
+          source_lecture_id?: string | null
+          study_guide_id?: string | null
+          topic_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          answer?: string
+          choices?: Json | null
+          course_id?: string
+          created_at?: string
+          difficulty?: number
+          explanation?: string | null
+          id?: string
+          question?: string
+          source_lecture_id?: string | null
+          study_guide_id?: string | null
+          topic_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_questions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_questions_source_lecture_id_fkey"
+            columns: ["source_lecture_id"]
+            isOneToOne: false
+            referencedRelation: "lectures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_questions_study_guide_id_fkey"
+            columns: ["study_guide_id"]
+            isOneToOne: false
+            referencedRelation: "study_guides"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_questions_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_attempts: {
+        Row: {
+          answered_at: string
+          correct: boolean
+          id: string
+          question_id: string
+          response: string | null
+          user_id: string
+        }
+        Insert: {
+          answered_at?: string
+          correct: boolean
+          id?: string
+          question_id: string
+          response?: string | null
+          user_id: string
+        }
+        Update: {
+          answered_at?: string
+          correct?: boolean
+          id?: string
+          question_id?: string
+          response?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "practice_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settings: {
         Row: {
           digest_email: string | null
@@ -501,6 +703,98 @@ export type Database = {
           whisper_model_size?: string
         }
         Relationships: []
+      }
+      study_guides: {
+        Row: {
+          course_id: string
+          created_at: string
+          exam_event_id: string | null
+          id: string
+          overview_md: string
+          source: string
+          title: string
+          topic_ids: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          exam_event_id?: string | null
+          id?: string
+          overview_md?: string
+          source?: string
+          title: string
+          topic_ids?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          exam_event_id?: string | null
+          id?: string
+          overview_md?: string
+          source?: string
+          title?: string
+          topic_ids?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_guides_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "study_guides_exam_event_id_fkey"
+            columns: ["exam_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      syllabi: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          parsed: Json | null
+          raw_text: string
+          storage_path: string | null
+          user_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          parsed?: Json | null
+          raw_text: string
+          storage_path?: string | null
+          user_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          parsed?: Json | null
+          raw_text?: string
+          storage_path?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "syllabi_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {
@@ -558,6 +852,50 @@ export type Database = {
             columns: ["note_id"]
             isOneToOne: false
             referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topics: {
+        Row: {
+          course_id: string
+          created_at: string
+          description: string | null
+          id: string
+          position: number
+          scheduled_date: string | null
+          title: string
+          user_id: string
+          week: number | null
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          position?: number
+          scheduled_date?: string | null
+          title: string
+          user_id: string
+          week?: number | null
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          position?: number
+          scheduled_date?: string | null
+          title?: string
+          user_id?: string
+          week?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
             referencedColumns: ["id"]
           },
         ]
