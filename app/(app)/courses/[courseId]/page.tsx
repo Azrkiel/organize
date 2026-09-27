@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { NotesList } from "@/components/notes-list";
 import { LectureList } from "@/components/lectures/lecture-list";
+import { NotebookLmExportButton } from "@/components/courses/notebooklm-export-button";
 import { createClient } from "@/lib/supabase/server";
 import { getCourseRootNotes } from "@/lib/server/notes";
 import { getLecturesByCourse } from "@/lib/server/lectures";
@@ -15,9 +16,12 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-2">
-        <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: course.color }} />
-        <h1 className="truncate text-2xl font-semibold tracking-tight">{course.name}</h1>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: course.color }} />
+          <h1 className="truncate text-2xl font-semibold tracking-tight">{course.name}</h1>
+        </div>
+        <NotebookLmExportButton courseId={course.id} />
       </div>
       <NotesList notes={notes} emptyLabel="No notes at the course root yet. Add a folder, or create a note here." />
       <div className="space-y-2">
