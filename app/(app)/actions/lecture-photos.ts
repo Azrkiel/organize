@@ -85,6 +85,24 @@ export async function updateSlideText(photoId: string, text: string): Promise<Ac
   return error ? { error: "Could not save slide text." } : {};
 }
 
+/** Retake support (PLAN.md Phase 12 task 8): points the same photo row at a freshly-uploaded
+ * image and clears `slide_text` so the caller re-extracts it; the caller removes the old Storage
+ * object only after this succeeds, so a failure here never leaves the row pointing at nothing. */
+export async function replaceLecturePhotoStorage(photoId: string, newStoragePath: string, oldStoragePath: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: photo, error } = await supabase
+    .from("lecture_photos")
+    .update({ storage_path: newStoragePath, slide_text: null })
+    .eq("id", photoId)
+    .select("lecture_id")
+    .single();
+  if (error || !photo) return { error: "Could not save the retaken photo." };
+
+  await supabase.storage.from("lecture-photos").remove([oldStoragePath]);
+  if (photo.lecture_id) revalidatePath(`/lectures/${photo.lecture_id}`);
+  return {};
+}
+
 export async function updatePhotoCaption(photoId: string, caption: string): Promise<ActionResult> {
   const parsed = z.string().trim().max(500).safeParse(caption);
   if (!parsed.success) return { error: "Caption is too long." };
