@@ -5,7 +5,7 @@ import {
   updateSlideText,
   replaceLecturePhotoStorage,
 } from "@/app/(app)/actions/lecture-photos";
-import { compressImage } from "@/lib/client/compress-image";
+import { processSlidePhoto } from "@/lib/client/process-slide-photo";
 import { ocrSlideText } from "@/lib/client/slide-ocr";
 
 /** Best-effort slide text (PLAN.md Phase 12 task 5) — one photo at a time (awaited by every
@@ -78,7 +78,7 @@ export async function retakeLecturePhoto({
 }): Promise<{ error?: string }> {
   let blob: Blob;
   try {
-    blob = await compressImage(file);
+    ({ blob } = await processSlidePhoto(file));
   } catch {
     return { error: "Could not process that photo." };
   }
@@ -98,22 +98,4 @@ export async function retakeLecturePhoto({
 
   await extractAndSaveSlideText(photoId, newStoragePath, blob);
   return {};
-}
-
-/** Compresses a raw camera photo and uploads it in one step — the normal (online) path. */
-export async function compressAndUploadLecturePhoto(input: {
-  userId: string;
-  lectureId: string | null;
-  courseId: string | null;
-  file: File;
-  offsetSeconds: number | null;
-  caption: string | null;
-}): Promise<{ id?: string; error?: string }> {
-  let blob: Blob;
-  try {
-    blob = await compressImage(input.file);
-  } catch {
-    return { error: "Could not process that photo." };
-  }
-  return uploadLecturePhoto({ ...input, blob });
 }

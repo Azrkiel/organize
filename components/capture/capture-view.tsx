@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, Loader2, Video, VideoOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { compressImage } from "@/lib/client/compress-image";
+import { processSlidePhoto } from "@/lib/client/process-slide-photo";
 import { uploadLecturePhoto } from "@/lib/client/lecture-photo-upload";
 import { enqueuePhoto, flushPhotoQueue, getQueuedPhotos } from "@/lib/client/lecture-photo-queue";
 import { startSlideWatcher, type SlideWatcherHandle, type SlideWatcherStatus } from "@/lib/client/slide-watcher";
@@ -53,6 +53,7 @@ export function CaptureView({
   const [smartActive, setSmartActive] = useState(false);
   const [smartStatus, setSmartStatus] = useState<SlideWatcherStatus>("settling");
   const [justCaptured, setJustCaptured] = useState(false);
+  const [lastCaptureNote, setLastCaptureNote] = useState<string | null>(null);
 
   useEffect(() => {
     function flush() {
@@ -74,18 +75,26 @@ export function CaptureView({
     return Math.max(0, Math.round((Date.now() - new Date(recordedAt).getTime()) / 1000));
   }
 
+  function flashCaptureNote(scanned: boolean) {
+    setLastCaptureNote(scanned ? "Slide saved — auto-scanned" : "Slide saved");
+    setTimeout(() => setLastCaptureNote(null), 2500);
+  }
+
   async function handleBlob(blob: Blob) {
     setError(null);
     setUploading(true);
     const takenCaption = caption.trim() || null;
     try {
-      const compressed = await compressImage(blob);
+      // Auto-scan (PLAN.md Phase 12 task 12) finds the slide's corners and perspective-corrects
+      // it before the usual size/quality compression — a no-op if it can't find a confident crop.
+      const { blob: compressed, scanned } = await processSlidePhoto(blob);
       const offsetSeconds = computeOffsetSeconds();
 
       if (!navigator.onLine) {
         await enqueuePhoto({ userId, lectureId, courseId, blob: compressed, offsetSeconds, caption: takenCaption });
         setQueuedCount((n) => n + 1);
         setCaption("");
+        flashCaptureNote(scanned);
         return;
       }
 
@@ -98,6 +107,7 @@ export function CaptureView({
         setError("Couldn't upload right now — it'll send automatically once you're back online.");
       } else if (result.id) {
         setPhotos((prev) => [...prev, { id: result.id!, url: URL.createObjectURL(compressed), caption: takenCaption }]);
+        flashCaptureNote(scanned);
       }
       setCaption("");
     } catch {
@@ -204,6 +214,7 @@ export function CaptureView({
       )}
 
       {error && <p className="text-center text-sm text-destructive">{error}</p>}
+      {!error && lastCaptureNote && <p className="text-center text-sm text-muted-foreground">{lastCaptureNote}</p>}
 
       {photos.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-2">

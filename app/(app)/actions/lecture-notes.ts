@@ -9,7 +9,7 @@ import { RateLimitError } from "@/lib/server/ai/types";
 import { markdownToTiptapJson } from "@/lib/server/markdown-to-tiptap";
 import { parseLectureNotes, type FlashcardSuggestion } from "@/lib/flashcard-suggestions";
 import { getLectureSlideMarkers } from "@/lib/server/lecture-photos";
-import { interleaveSlides, type TranscriptSegment } from "@/lib/interleave";
+import { interleaveSlides, parseTranscriptSegments } from "@/lib/interleave";
 import { insertSlideImages } from "@/lib/insert-slide-images";
 
 type ActionResult<T = object> = { error?: string; rateLimited?: boolean } & Partial<T>;
@@ -23,8 +23,6 @@ async function getLectureWithCourse(supabase: Awaited<ReturnType<typeof createCl
   return { lecture, course };
 }
 
-const segmentsSchema = z.array(z.object({ start: z.number(), end: z.number(), text: z.string() }));
-
 /** Builds the transcript actually sent to the model — interleaved with `[SLIDE n at MM:SS]`
  * markers when both slide photos and Whisper's chunk-level timestamps exist (PLAN.md Phase 12
  * task 7); otherwise just the raw transcript, unchanged from Phase 10. Also returns the
@@ -35,13 +33,12 @@ async function buildTranscriptForNotes(
   rawSegments: unknown
 ): Promise<{ transcript: string; hasSlides: boolean; photoIdByIndex: Record<number, string> }> {
   const slides = await getLectureSlideMarkers(lectureId);
-  const parsedSegments = segmentsSchema.safeParse(rawSegments);
+  const segments = parseTranscriptSegments(rawSegments);
 
-  if (slides.length === 0 || !parsedSegments.success || parsedSegments.data.length === 0) {
+  if (slides.length === 0 || segments.length === 0) {
     return { transcript: rawTranscript, hasSlides: false, photoIdByIndex: {} };
   }
 
-  const segments: TranscriptSegment[] = parsedSegments.data;
   const transcript = interleaveSlides(
     segments,
     slides.map((s) => ({ index: s.index, offsetSeconds: s.offsetSeconds, slideText: s.slideText ?? undefined }))

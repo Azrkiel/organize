@@ -4,9 +4,22 @@
  * mid-chunk lands right after that chunk's text rather than inside it — good enough for anchoring
  * a note's structure, which is all task 7 needs this for. Pure and synchronous so it's cheap to
  * call from both a lecture page render and the note-generation prompt builder. */
+import { z } from "zod";
 
 export type TranscriptSegment = { start: number; end: number; text: string };
 export type SlideMarker = { index: number; offsetSeconds: number; slideText?: string };
+
+const transcriptSegmentSchema = z.object({ start: z.number(), end: z.number(), text: z.string() });
+
+/** `lectures.transcript_segments` is untyped JSON from the DB — this is the one place that
+ * validates it, shared by everything that reads it (the notes prompt builder, the timeline) so
+ * they can't drift into checking its shape differently. Malformed/missing data quietly becomes an
+ * empty array rather than throwing, since a lecture with no segments (an imported or live
+ * transcript, neither of which have timestamps) is a normal, expected case, not an error. */
+export function parseTranscriptSegments(raw: unknown): TranscriptSegment[] {
+  const parsed = z.array(transcriptSegmentSchema).safeParse(raw);
+  return parsed.success ? parsed.data : [];
+}
 
 export function interleaveSlides(segments: TranscriptSegment[], slides: SlideMarker[]): string {
   const sortedSlides = [...slides].sort((a, b) => a.offsetSeconds - b.offsetSeconds);
