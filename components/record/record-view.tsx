@@ -33,6 +33,7 @@ import {
 import { getInProgressRecordings, saveChunk, saveRecordingMeta, type RecordingMeta } from "@/lib/client/lecture-audio-db";
 import { rmsToMeterPercent } from "@/lib/client/audio-decode";
 import { QrPairingCard } from "@/components/record/qr-pairing-card";
+import { LiveSlidePhotos } from "@/components/record/live-slide-photos";
 import { generateLectureTitle } from "@/lib/lecture-title";
 import { formatClock } from "@/lib/focus-timer";
 import { cn } from "@/lib/utils";
@@ -634,7 +635,12 @@ export function RecordView({ courses, initialPolicyAcked }: { courses: Course[];
             )}
           </div>
 
-          {(recording || paused) && activeLectureId && <QrPairingCard lectureId={activeLectureId} />}
+          {(recording || paused) && activeLectureId && (
+            <>
+              <QrPairingCard lectureId={activeLectureId} />
+              <LiveSlidePhotos lectureId={activeLectureId} />
+            </>
+          )}
 
           {!idle && (
             <div className="rounded-lg border p-4">
