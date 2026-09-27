@@ -35,6 +35,27 @@ export async function updateDigestSettings(input: { enabled: boolean; email: str
   return {};
 }
 
+const slideCleanupSchema = z.object({ days: z.number().int().min(0).max(3650).nullable() });
+
+/** Off by default: `days` null/0 disables it (PLAN.md Phase 12 task 9). The actual deletion runs
+ * in the daily cron (`lib/server/slide-cleanup.ts`), not here — this just saves the preference. */
+export async function updateSlideCleanupSettings(days: number | null): Promise<ActionResult> {
+  const parsed = slideCleanupSchema.safeParse({ days });
+  if (!parsed.success) return { error: "Enter a whole number of days." };
+
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { error: "Not signed in." };
+
+  const { error } = await supabase
+    .from("settings")
+    .update({ delete_slide_photos_after_days: parsed.data.days || null })
+    .eq("user_id", auth.user.id);
+  if (error) return { error: "Could not save this setting." };
+  revalidatePath("/settings");
+  return {};
+}
+
 /** Sends today's digest to the signed-in user right now, regardless of the enabled toggle, for a quick check. */
 export async function sendTestDigest(): Promise<ActionResult> {
   const resend = getResendClient();

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getDigestRecipient, getDigestData, buildDigestEmail } from "@/lib/server/digest";
 import { getDigestFromEmail, getResendClient } from "@/lib/server/resend";
+import { cleanupOldSlidePhotos } from "@/lib/server/slide-cleanup";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,14 @@ export async function GET(request: NextRequest) {
   // so the Supabase free project doesn't pause from a week of no traffic.
   const supabase = createServiceClient();
   await supabase.from("settings").select("user_id").limit(1);
+
+  // Runs regardless of digest config (PLAN.md Phase 12 task 9, off by default) — a failure here
+  // shouldn't take the digest down, so it's logged and swallowed rather than returned as an error.
+  try {
+    await cleanupOldSlidePhotos();
+  } catch (err) {
+    console.error("Slide photo cleanup failed", err);
+  }
 
   const resend = getResendClient();
   const fromEmail = getDigestFromEmail();

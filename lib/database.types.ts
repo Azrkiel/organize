@@ -354,6 +354,7 @@ export type Database = {
           id: string
           lecture_id: string | null
           offset_seconds: number | null
+          size_bytes: number | null
           slide_text: string | null
           storage_path: string
           taken_at: string
@@ -366,6 +367,7 @@ export type Database = {
           id?: string
           lecture_id?: string | null
           offset_seconds?: number | null
+          size_bytes?: number | null
           slide_text?: string | null
           storage_path: string
           taken_at?: string
@@ -378,6 +380,7 @@ export type Database = {
           id?: string
           lecture_id?: string | null
           offset_seconds?: number | null
+          size_bytes?: number | null
           slide_text?: string | null
           storage_path?: string
           taken_at?: string
@@ -673,6 +676,7 @@ export type Database = {
       }
       settings: {
         Row: {
+          delete_slide_photos_after_days: number | null
           digest_email: string | null
           digest_enabled: boolean
           onenote_notebook_id: string | null
@@ -683,6 +687,7 @@ export type Database = {
           whisper_model_size: string
         }
         Insert: {
+          delete_slide_photos_after_days?: number | null
           digest_email?: string | null
           digest_enabled?: boolean
           onenote_notebook_id?: string | null
@@ -693,6 +698,7 @@ export type Database = {
           whisper_model_size?: string
         }
         Update: {
+          delete_slide_photos_after_days?: number | null
           digest_email?: string | null
           digest_enabled?: boolean
           onenote_notebook_id?: string | null

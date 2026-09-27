@@ -50,7 +50,7 @@ export async function uploadLecturePhoto({
     .upload(storagePath, blob, { contentType: "image/jpeg", upsert: false });
   if (uploadError) return { error: uploadError.message };
 
-  const result = await recordLecturePhoto({ lectureId, courseId, storagePath, offsetSeconds, caption });
+  const result = await recordLecturePhoto({ lectureId, courseId, storagePath, offsetSeconds, caption, sizeBytes: blob.size });
   if (result.error) {
     await supabase.storage.from("lecture-photos").remove([storagePath]);
     return { error: result.error };
@@ -90,7 +90,7 @@ export async function retakeLecturePhoto({
     .upload(newStoragePath, blob, { contentType: "image/jpeg", upsert: false });
   if (uploadError) return { error: uploadError.message };
 
-  const result = await replaceLecturePhotoStorage(photoId, newStoragePath, oldStoragePath);
+  const result = await replaceLecturePhotoStorage(photoId, newStoragePath, oldStoragePath, blob.size);
   if (result.error) {
     await supabase.storage.from("lecture-photos").remove([newStoragePath]);
     return { error: result.error };

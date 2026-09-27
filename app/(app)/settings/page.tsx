@@ -7,6 +7,7 @@ import { DisconnectButton } from "@/components/settings/disconnect-button";
 import { DigestForm } from "@/components/settings/digest-form";
 import { ExportButton } from "@/components/settings/export-button";
 import { LectureAudioCleanup } from "@/components/settings/lecture-audio-cleanup";
+import { SlideCleanupForm } from "@/components/settings/slide-cleanup-form";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +47,11 @@ export default async function SettingsPage({
   }
 
   const { data: settings } = auth.user
-    ? await supabase.from("settings").select("digest_enabled, digest_email").eq("user_id", auth.user.id).single()
+    ? await supabase
+        .from("settings")
+        .select("digest_enabled, digest_email, delete_slide_photos_after_days")
+        .eq("user_id", auth.user.id)
+        .single()
     : { data: null };
 
   const statusMessage = googleStatus ? GOOGLE_STATUS_MESSAGES[googleStatus] : undefined;
@@ -108,7 +113,7 @@ export default async function SettingsPage({
       </div>
 
       <div className="space-y-2 rounded-lg border p-4">
-        <h2 className="text-sm font-medium">Attachment storage</h2>
+        <h2 className="text-sm font-medium">Storage used</h2>
         {bytes === null ? (
           <p className="text-sm text-muted-foreground">Sign in to see your storage usage.</p>
         ) : (
@@ -124,6 +129,13 @@ export default async function SettingsPage({
       </div>
 
       <LectureAudioCleanup />
+
+      {auth.user && (
+        <div className="space-y-3 rounded-lg border p-4">
+          <h2 className="text-sm font-medium">Slide photo cleanup</h2>
+          <SlideCleanupForm initialDays={settings?.delete_slide_photos_after_days ?? null} />
+        </div>
+      )}
 
       {process.env.RESEND_API_KEY && auth.user && (
         <div className="space-y-3 rounded-lg border p-4">

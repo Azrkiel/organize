@@ -20,17 +20,19 @@ const recordSchema = z.object({
   storagePath: z.string().min(1),
   offsetSeconds: z.number().int().min(0).nullable(),
   caption: z.string().trim().max(500).nullable(),
+  sizeBytes: z.number().int().min(0).nullable(),
 });
 
 /** Records a slide photo already uploaded straight from the browser to Storage (PLAN.md Phase 12
  * task 3) — mirrors the attachments pattern: upload first, record second, roll back the upload if
- * recording fails. */
+ * recording fails. `sizeBytes` (task 9) feeds the combined storage-usage readout in Settings. */
 export async function recordLecturePhoto(input: {
   lectureId: string | null;
   courseId: string | null;
   storagePath: string;
   offsetSeconds: number | null;
   caption: string | null;
+  sizeBytes: number | null;
 }): Promise<ActionResult<{ id: string }>> {
   const parsed = recordSchema.safeParse(input);
   if (!parsed.success) return { error: "Invalid photo data." };
@@ -48,6 +50,7 @@ export async function recordLecturePhoto(input: {
       storage_path: parsed.data.storagePath,
       offset_seconds: parsed.data.offsetSeconds,
       caption: parsed.data.caption,
+      size_bytes: parsed.data.sizeBytes,
     })
     .select("id")
     .single();
@@ -88,11 +91,16 @@ export async function updateSlideText(photoId: string, text: string): Promise<Ac
 /** Retake support (PLAN.md Phase 12 task 8): points the same photo row at a freshly-uploaded
  * image and clears `slide_text` so the caller re-extracts it; the caller removes the old Storage
  * object only after this succeeds, so a failure here never leaves the row pointing at nothing. */
-export async function replaceLecturePhotoStorage(photoId: string, newStoragePath: string, oldStoragePath: string): Promise<ActionResult> {
+export async function replaceLecturePhotoStorage(
+  photoId: string,
+  newStoragePath: string,
+  oldStoragePath: string,
+  sizeBytes: number | null
+): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: photo, error } = await supabase
     .from("lecture_photos")
-    .update({ storage_path: newStoragePath, slide_text: null })
+    .update({ storage_path: newStoragePath, slide_text: null, size_bytes: sizeBytes })
     .eq("id", photoId)
     .select("lecture_id")
     .single();
