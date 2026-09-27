@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getLecturePhotos, type LecturePhotoWithUrl } from "@/lib/server/lecture-photos";
+import { extractSlideTextWithGemini } from "@/lib/server/ai/slide-vision";
 
 type ActionResult<T = object> = { error?: string } & Partial<T>;
 
@@ -54,6 +55,34 @@ export async function recordLecturePhoto(input: {
   if (error || !data) return { error: "Could not save the photo." };
   if (parsed.data.lectureId) revalidatePath(`/lectures/${parsed.data.lectureId}`);
   return { id: data.id };
+}
+
+/** Tries Gemini vision for this photo's slide text; the caller runs the tesseract.js fallback
+ * itself (client-only) whenever `ocrNeeded` comes back true — no key, a download failure, or any
+ * Gemini API error all collapse to the same signal (PLAN.md Phase 12 task 5). */
+export async function extractLecturePhotoText(photoId: string, storagePath: string): Promise<{ ocrNeeded: boolean }> {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ocrNeeded: false };
+  if (!process.env.GEMINI_API_KEY) return { ocrNeeded: true };
+
+  const { data: file } = await supabase.storage.from("lecture-photos").download(storagePath);
+  if (!file) return { ocrNeeded: true };
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const text = await extractSlideTextWithGemini(bytes, file.type || "image/jpeg");
+  if (!text) return { ocrNeeded: true };
+
+  const { error } = await supabase.from("lecture_photos").update({ slide_text: text }).eq("id", photoId);
+  return { ocrNeeded: Boolean(error) };
+}
+
+export async function updateSlideText(photoId: string, text: string): Promise<ActionResult> {
+  const parsed = z.string().trim().min(1).max(4000).safeParse(text);
+  if (!parsed.success) return {};
+  const supabase = await createClient();
+  const { error } = await supabase.from("lecture_photos").update({ slide_text: parsed.data }).eq("id", photoId);
+  return error ? { error: "Could not save slide text." } : {};
 }
 
 export async function updatePhotoCaption(photoId: string, caption: string): Promise<ActionResult> {

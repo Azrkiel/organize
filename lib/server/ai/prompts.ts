@@ -23,3 +23,9 @@ Transcript:
 ${transcript}
 """`;
 }
+
+/** The slide-vision prompt (PLAN.md Phase 12 task 5) — shared by nothing else, unlike the notes
+ * prompt, since the tesseract.js fallback runs plain OCR rather than following a written prompt. */
+export function buildSlideTextPrompt(): string {
+  return `Transcribe all text visible in this lecture slide photo. Write any equations in LaTeX (inline as $...$, chemistry with \\ce{...}). For a diagram, chart, or figure with little or no text, briefly describe what it shows in one sentence instead of transcribing nothing. Output only the transcription/description — no preamble, no commentary.`;
+}
