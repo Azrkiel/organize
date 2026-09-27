@@ -1,41 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { getInProgressRecordings } from "@/lib/client/lecture-audio-db";
+import { useState } from "react";
 import { CaptureView } from "@/components/capture/capture-view";
 import type { Course } from "@/lib/types";
 
-/** Mobile bottom-nav "Capture" tab landing (PLAN.md Phase 12 task 10, no QR code involved): if a
- * lecture is actively recording, jump straight to its lecture-scoped capture page so offsets stay
- * meaningful; otherwise let the owner pick a course and file photos there directly. */
+/** Mobile bottom-nav "Capture" tab landing (PLAN.md Phase 12 task 10) when nothing is actively
+ * recording — the parent server component already redirects to `/capture/[lectureId]` when
+ * something is (a server-side check, not this device's own IndexedDB, since recording always
+ * happens on the laptop and this page can be opened from the phone). This just lets the owner pick
+ * a course and file photos with no lecture link. */
 export function CaptureEntryClient({ userId, courses }: { userId: string; courses: Course[] }) {
-  const router = useRouter();
-  const [checked, setChecked] = useState(false);
   const [courseId, setCourseId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    getInProgressRecordings()
-      .then((rows) => {
-        if (cancelled) return;
-        if (rows.length > 0) {
-          router.replace(`/capture/${rows[0].lectureId}`);
-        } else {
-          setChecked(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setChecked(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
-
-  if (!checked) {
-    return <p className="text-center text-sm text-muted-foreground">Checking for an active recording…</p>;
-  }
 
   if (courseId) {
     return (

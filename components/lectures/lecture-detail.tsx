@@ -18,6 +18,7 @@ import type { WhisperModelSize } from "@/lib/client/whisper-transcription";
 import type { Lecture } from "@/lib/types";
 
 const STATUS_LABEL: Record<string, string> = {
+  recording: "Recording…",
   recorded: "Recorded",
   transcribing: "Transcribing…",
   transcribed: "Transcribed",

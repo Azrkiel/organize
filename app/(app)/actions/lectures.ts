@@ -23,7 +23,7 @@ export async function createLecture(input: { courseId: string | null; title: str
 
   const { data, error } = await supabase
     .from("lectures")
-    .insert({ user_id: auth.user.id, course_id: parsed.data.courseId, title: parsed.data.title, status: "recorded" })
+    .insert({ user_id: auth.user.id, course_id: parsed.data.courseId, title: parsed.data.title, status: "recording" })
     .select("id")
     .single();
 
@@ -47,13 +47,18 @@ export async function saveLiveTranscript(input: { id: string; transcriptLive: st
 
 const finishSchema = z.object({ id: z.string().uuid(), durationSeconds: z.number().int().min(0) });
 
-/** Marks recording stopped and records the final duration (PLAN.md Phase 9 task 1). */
+/** Marks recording stopped and records the final duration (PLAN.md Phase 9 task 1). Also flips
+ * status from "recording" to "recorded" — the signal `getActiveRecordingLecture` uses so another
+ * device (the phone) can tell a lecture is still actively being recorded (Phase 12 task 10 fix). */
 export async function finishRecording(input: { id: string; durationSeconds: number }): Promise<ActionResult> {
   const parsed = finishSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("lectures").update({ duration_seconds: parsed.data.durationSeconds }).eq("id", parsed.data.id);
+  const { error } = await supabase
+    .from("lectures")
+    .update({ duration_seconds: parsed.data.durationSeconds, status: "recorded" })
+    .eq("id", parsed.data.id);
   if (error) return { error: "Could not save the recording." };
   revalidatePath("/record");
   return {};
@@ -108,7 +113,7 @@ export async function ackRecordingPolicy(): Promise<ActionResult> {
 
 const lectureStatusSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(["recorded", "transcribing", "transcribed", "notes_ready", "error"]),
+  status: z.enum(["recording", "recorded", "transcribing", "transcribed", "notes_ready", "error"]),
 });
 
 /** Sets a lecture's status directly — used to mark "transcribing" while the Whisper worker runs
