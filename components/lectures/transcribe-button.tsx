@@ -45,14 +45,14 @@ export function TranscribeButton({
     await setLectureStatus({ id: lectureId, status: "transcribing" });
 
     try {
-      const text = await transcribeLecture({
+      const { text, segments } = await transcribeLecture({
         lectureId,
         modelSize,
         totalDurationSeconds: durationSeconds,
         onProgress: setProgress,
         signal: controller.signal,
       });
-      const result = await saveWhisperTranscript({ id: lectureId, transcript: text });
+      const result = await saveWhisperTranscript({ id: lectureId, transcript: text, segments });
       if (result.error) setError(result.error);
       router.refresh();
     } catch (err) {

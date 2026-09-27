@@ -16,12 +16,17 @@ export type WhisperRequest = {
   audio: Float32Array;
 };
 
+export type WhisperChunk = { text: string; start: number; end: number };
+
 export type WhisperResponse =
   | { type: "model-progress"; requestId: number; loaded: number; total: number; file: string }
-  | { type: "result"; requestId: number; text: string }
+  | { type: "result"; requestId: number; text: string; chunks: WhisperChunk[] }
   | { type: "error"; requestId: number; message: string };
 
-type PipelineFn = (audio: Float32Array, options: Record<string, unknown>) => Promise<{ text: string }>;
+type PipelineFn = (
+  audio: Float32Array,
+  options: Record<string, unknown>
+) => Promise<{ text: string; chunks?: { text: string; timestamp: [number, number | null] }[] }>;
 
 let cachedModelSize: string | null = null;
 let cachedPipeline: PipelineFn | null = null;
@@ -64,8 +69,23 @@ self.addEventListener("message", async (event: MessageEvent<WhisperRequest>) => 
     // `condition_on_previous_text: false` is Whisper's own documented mitigation against getting
     // stuck repeating/hallucinating a filler word (classically "you") when it loses confidence —
     // without it, a bad guess on one window can anchor every window after it in the same segment.
-    const output = await transcriber(audio, { chunk_length_s: 30, stride_length_s: 5, condition_on_previous_text: false });
-    self.postMessage({ type: "result", requestId, text: output.text.trim() } satisfies WhisperResponse);
+    // return_timestamps: true (chunk-level, not word-level — plenty of resolution for slide
+    // alignment, PLAN.md Phase 12 task 6) makes each chunk carry its own [start, end] in seconds.
+    const output = await transcriber(audio, {
+      chunk_length_s: 30,
+      stride_length_s: 5,
+      condition_on_previous_text: false,
+      return_timestamps: true,
+    });
+    // A chunk's end can come back null if the model hits its length limit before an end token —
+    // a known Whisper quirk, most often on the very last chunk. Falling back to its own start
+    // keeps every chunk's timestamps well-formed instead of leaking a null into stored JSON.
+    const chunks: WhisperChunk[] = (output.chunks ?? []).map((c) => ({
+      text: c.text,
+      start: c.timestamp[0],
+      end: c.timestamp[1] ?? c.timestamp[0],
+    }));
+    self.postMessage({ type: "result", requestId, text: output.text.trim(), chunks } satisfies WhisperResponse);
   } catch (err) {
     self.postMessage({
       type: "error",

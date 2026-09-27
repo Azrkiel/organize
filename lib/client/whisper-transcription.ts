@@ -1,6 +1,6 @@
 import { getRecordingMeta, getSegmentChunks, getSegmentIndexes } from "@/lib/client/lecture-audio-db";
 import { computeRms, concatenateChunks, decodeToMono16k } from "@/lib/client/audio-decode";
-import type { WhisperRequest, WhisperResponse } from "@/lib/client/whisper.worker";
+import type { WhisperChunk, WhisperRequest, WhisperResponse } from "@/lib/client/whisper.worker";
 
 // Whisper doesn't say nothing when given near-silent audio — it reliably hallucinates a short
 // filler word (classically "you"), a well-documented failure mode. Below this RMS level a
@@ -9,6 +9,8 @@ import type { WhisperRequest, WhisperResponse } from "@/lib/client/whisper.worke
 const SILENCE_RMS_THRESHOLD = 0.01;
 
 export type WhisperModelSize = "tiny" | "base" | "small";
+
+export type TranscriptSegment = { start: number; end: number; text: string };
 
 export type WhisperProgress =
   | { phase: "loading-model"; loaded: number; total: number; file: string }
@@ -32,7 +34,7 @@ export async function transcribeLecture({
   totalDurationSeconds: number | null;
   onProgress: (progress: WhisperProgress) => void;
   signal?: AbortSignal;
-}): Promise<string> {
+}): Promise<{ text: string; segments: TranscriptSegment[] }> {
   const segmentIndexes = await getSegmentIndexes(lectureId);
   if (segmentIndexes.length === 0) {
     throw new Error("No recorded audio found for this lecture on this device.");
@@ -45,13 +47,14 @@ export async function transcribeLecture({
   let requestId = 0;
   let secondsDone = 0;
   const parts: string[] = [];
+  const segments: TranscriptSegment[] = [];
 
   try {
     for (let i = 0; i < segmentIndexes.length; i++) {
       if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
 
-      const chunks = await getSegmentChunks(lectureId, segmentIndexes[i]);
-      const blob = concatenateChunks(chunks, mimeType);
+      const audioChunks = await getSegmentChunks(lectureId, segmentIndexes[i]);
+      const blob = concatenateChunks(audioChunks, mimeType);
       const audio = await decodeToMono16k(blob);
       const segmentSeconds = audio.length / 16000;
 
@@ -68,8 +71,9 @@ export async function transcribeLecture({
         continue;
       }
 
+      const segmentOffset = secondsDone;
       const id = ++requestId;
-      const text = await new Promise<string>((resolve, reject) => {
+      const { text, chunks } = await new Promise<{ text: string; chunks: WhisperChunk[] }>((resolve, reject) => {
         function onMessage(event: MessageEvent<WhisperResponse>) {
           const msg = event.data;
           if (msg.requestId !== id) return;
@@ -77,7 +81,7 @@ export async function transcribeLecture({
             onProgress({ phase: "loading-model", loaded: msg.loaded, total: msg.total, file: msg.file });
           } else if (msg.type === "result") {
             worker.removeEventListener("message", onMessage);
-            resolve(msg.text);
+            resolve({ text: msg.text, chunks: msg.chunks });
           } else if (msg.type === "error") {
             worker.removeEventListener("message", onMessage);
             reject(new Error(msg.message));
@@ -89,6 +93,9 @@ export async function transcribeLecture({
       });
 
       parts.push(text);
+      for (const chunk of chunks) {
+        segments.push({ start: segmentOffset + chunk.start, end: segmentOffset + chunk.end, text: chunk.text.trim() });
+      }
       secondsDone += segmentSeconds;
     }
   } finally {
@@ -101,5 +108,5 @@ export async function transcribeLecture({
     );
   }
 
-  return parts.join("\n\n");
+  return { text: parts.join("\n\n"), segments };
 }

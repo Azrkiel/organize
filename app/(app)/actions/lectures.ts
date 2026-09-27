@@ -124,16 +124,32 @@ export async function setLectureStatus(input: { id: string; status: string }): P
   return {};
 }
 
-const whisperSchema = z.object({ id: z.string().uuid(), transcript: z.string().trim().min(1) });
+const whisperSchema = z.object({
+  id: z.string().uuid(),
+  transcript: z.string().trim().min(1),
+  segments: z.array(z.object({ start: z.number(), end: z.number(), text: z.string() })).optional(),
+});
 
-export async function saveWhisperTranscript(input: { id: string; transcript: string }): Promise<ActionResult> {
+/** PLAN.md Phase 12 task 6: `segments` (Whisper's chunk-level timestamps, already offset into
+ * lecture-wide seconds) are saved to `transcript_segments` for `lib/interleave.ts` to align slide
+ * photos against later. Optional so the type stays useful even if a caller has no segments. */
+export async function saveWhisperTranscript(input: {
+  id: string;
+  transcript: string;
+  segments?: { start: number; end: number; text: string }[];
+}): Promise<ActionResult> {
   const parsed = whisperSchema.safeParse(input);
   if (!parsed.success) return { error: "The transcription came back empty." };
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("lectures")
-    .update({ transcript: parsed.data.transcript, transcript_source: "whisper", status: "transcribed" })
+    .update({
+      transcript: parsed.data.transcript,
+      transcript_segments: parsed.data.segments ?? null,
+      transcript_source: "whisper",
+      status: "transcribed",
+    })
     .eq("id", parsed.data.id);
   if (error) return { error: "Could not save the transcript." };
   revalidatePath("/", "layout");
