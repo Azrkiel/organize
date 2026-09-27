@@ -26,7 +26,15 @@ export class GeminiLectureNotesProvider implements LectureNotesProvider {
     this.model = model;
   }
 
-  async generateLectureNotes({ transcript, courseName }: { transcript: string; courseName: string | null }): Promise<string> {
+  async generateLectureNotes({
+    transcript,
+    courseName,
+    hasSlides,
+  }: {
+    transcript: string;
+    courseName: string | null;
+    hasSlides?: boolean;
+  }): Promise<string> {
     if (transcript.trim().split(/\s+/).length > LONG_TRANSCRIPT_WORD_THRESHOLD) {
       throw new Error(
         "This transcript is unusually long (over ~30k words). Splitting long transcripts isn't built yet — try importing a shorter transcript, or ask the owner to add chunking support."
@@ -36,7 +44,7 @@ export class GeminiLectureNotesProvider implements LectureNotesProvider {
     try {
       const response = await this.client.models.generateContent({
         model: this.model,
-        contents: buildLectureNotesPrompt(transcript, courseName),
+        contents: buildLectureNotesPrompt(transcript, courseName, hasSlides),
       });
       const text = response.text;
       if (!text) throw new Error("Gemini returned an empty response.");

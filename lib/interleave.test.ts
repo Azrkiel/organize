@@ -41,4 +41,9 @@ describe("interleaveSlides", () => {
     const result = interleaveSlides([], [{ index: 1, offsetSeconds: 5 }]);
     expect(result).toBe("[SLIDE 1 at 0:05]");
   });
+
+  it("includes the slide's extracted text under its marker when present", () => {
+    const result = interleaveSlides(segments, [{ index: 1, offsetSeconds: 0, slideText: "F = ma" }]);
+    expect(result.split("\n\n")[0]).toBe("[SLIDE 1 at 0:00]\nF = ma");
+  });
 });

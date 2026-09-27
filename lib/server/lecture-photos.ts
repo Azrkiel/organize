@@ -3,6 +3,28 @@ import { createClient } from "@/lib/supabase/server";
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour — plenty for a gallery/lightbox session.
 
+export type LectureSlideMarker = { index: number; offsetSeconds: number; photoId: string; slideText: string | null };
+
+/** Slide photos for a lecture as ordinal markers (1st photo taken = slide 1, etc.), for aligning
+ * against `lectures.transcript_segments` (`lib/interleave.ts`) and for the photoId lookup that
+ * turns a generated note's `[SLIDE_IMAGE n]` placeholder into a real image (PLAN.md Phase 12 task
+ * 7) — no signed URLs needed here, unlike `getLecturePhotos`, so this skips that work. */
+export async function getLectureSlideMarkers(lectureId: string): Promise<LectureSlideMarker[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("lecture_photos")
+    .select("id, offset_seconds, slide_text")
+    .eq("lecture_id", lectureId)
+    .order("taken_at", { ascending: true });
+
+  return (data ?? []).map((p, i) => ({
+    index: i + 1,
+    offsetSeconds: p.offset_seconds ?? 0,
+    photoId: p.id,
+    slideText: p.slide_text,
+  }));
+}
+
 export type LecturePhotoWithUrl = {
   id: string;
   storagePath: string;

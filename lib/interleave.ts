@@ -6,7 +6,7 @@
  * call from both a lecture page render and the note-generation prompt builder. */
 
 export type TranscriptSegment = { start: number; end: number; text: string };
-export type SlideMarker = { index: number; offsetSeconds: number };
+export type SlideMarker = { index: number; offsetSeconds: number; slideText?: string };
 
 export function interleaveSlides(segments: TranscriptSegment[], slides: SlideMarker[]): string {
   const sortedSlides = [...slides].sort((a, b) => a.offsetSeconds - b.offsetSeconds);
@@ -31,7 +31,8 @@ export function interleaveSlides(segments: TranscriptSegment[], slides: SlideMar
 }
 
 function formatMarker(slide: SlideMarker): string {
-  return `[SLIDE ${slide.index} at ${formatTimestamp(slide.offsetSeconds)}]`;
+  const header = `[SLIDE ${slide.index} at ${formatTimestamp(slide.offsetSeconds)}]`;
+  return slide.slideText ? `${header}\n${slide.slideText}` : header;
 }
 
 function formatTimestamp(totalSeconds: number): string {

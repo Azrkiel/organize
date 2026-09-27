@@ -4,8 +4,9 @@
 export interface LectureNotesProvider {
   /** Returns raw Markdown: the notes body plus the trailing ```json-flashcards fence — see
    * lib/server/ai/prompts.ts and lib/flashcard-suggestions.ts for that shape. Throws on failure;
-   * callers distinguish a rate limit via `isRateLimitError`. */
-  generateLectureNotes(input: { transcript: string; courseName: string | null }): Promise<string>;
+   * callers distinguish a rate limit via `isRateLimitError`. `hasSlides` (PLAN.md Phase 12 task 7)
+   * tells the prompt whether `transcript` contains `[SLIDE n at MM:SS]` markers to work with. */
+  generateLectureNotes(input: { transcript: string; courseName: string | null; hasSlides?: boolean }): Promise<string>;
 }
 
 export class RateLimitError extends Error {

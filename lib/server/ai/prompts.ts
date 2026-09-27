@@ -1,8 +1,19 @@
-/** The lecture-notes prompt (PLAN.md Phase 10 task 2). Shared by the real Gemini call and the
- * no-key "Copy prompt for Claude" fallback, so both paths produce notes in the same shape. */
-export function buildLectureNotesPrompt(transcript: string, courseName: string | null): string {
-  return `You are turning a raw lecture transcript into clear, well-structured study notes${courseName ? ` for a course called "${courseName}"` : ""}.
+/** The lecture-notes prompt (PLAN.md Phase 10 task 2, extended by Phase 12 task 7 for slides).
+ * Shared by the real Gemini call and the no-key "Copy prompt for Claude" fallback, so both paths
+ * produce notes in the same shape. */
+export function buildLectureNotesPrompt(transcript: string, courseName: string | null, hasSlides = false): string {
+  const slideInstructions = hasSlides
+    ? `
+This transcript has \`[SLIDE n at MM:SS]\` markers showing when each slide photo appeared, sometimes followed by that slide's own transcribed text/equations/diagram description. Use them:
+- Let the slides anchor your section structure where it makes sense — group notes around what a slide covers rather than ignoring the markers.
+- When the spoken transcript is unclear, garbled, or missing an equation/term but the corresponding slide's text has it, prefer the slide's version rather than guessing from the audio.
+- Whenever a section covers material from a specific slide, mention it in prose as "(Slide n)".
+- The FIRST time you introduce a slide's content in a section, put a line by itself right after it containing exactly \`[SLIDE_IMAGE n]\` (with the real slide number, nothing else on that line) so the photo can be inserted there automatically. Never invent a slide number that has no marker in the transcript, and don't repeat the same \`[SLIDE_IMAGE n]\` more than once.
+`
+    : "";
 
+  return `You are turning a raw lecture transcript into clear, well-structured study notes${courseName ? ` for a course called "${courseName}"` : ""}.
+${slideInstructions}
 Write the notes in Markdown, in this order:
 1. A short summary paragraph (2-4 sentences) of what the lecture covered.
 2. The body, organized under \`##\` headings by topic (not by "minute 1, minute 2" — group related material together even if the professor jumped around).

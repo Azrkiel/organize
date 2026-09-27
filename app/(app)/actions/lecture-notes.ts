@@ -8,6 +8,9 @@ import { getGeminiProvider } from "@/lib/server/ai/gemini-provider";
 import { RateLimitError } from "@/lib/server/ai/types";
 import { markdownToTiptapJson } from "@/lib/server/markdown-to-tiptap";
 import { parseLectureNotes, type FlashcardSuggestion } from "@/lib/flashcard-suggestions";
+import { getLectureSlideMarkers } from "@/lib/server/lecture-photos";
+import { interleaveSlides, type TranscriptSegment } from "@/lib/interleave";
+import { insertSlideImages } from "@/lib/insert-slide-images";
 
 type ActionResult<T = object> = { error?: string; rateLimited?: boolean } & Partial<T>;
 
@@ -20,6 +23,33 @@ async function getLectureWithCourse(supabase: Awaited<ReturnType<typeof createCl
   return { lecture, course };
 }
 
+const segmentsSchema = z.array(z.object({ start: z.number(), end: z.number(), text: z.string() }));
+
+/** Builds the transcript actually sent to the model — interleaved with `[SLIDE n at MM:SS]`
+ * markers when both slide photos and Whisper's chunk-level timestamps exist (PLAN.md Phase 12
+ * task 7); otherwise just the raw transcript, unchanged from Phase 10. Also returns the
+ * index→photoId map `createNoteFromMarkdown` needs to turn `[SLIDE_IMAGE n]` into a real image. */
+async function buildTranscriptForNotes(
+  lectureId: string,
+  rawTranscript: string,
+  rawSegments: unknown
+): Promise<{ transcript: string; hasSlides: boolean; photoIdByIndex: Record<number, string> }> {
+  const slides = await getLectureSlideMarkers(lectureId);
+  const parsedSegments = segmentsSchema.safeParse(rawSegments);
+
+  if (slides.length === 0 || !parsedSegments.success || parsedSegments.data.length === 0) {
+    return { transcript: rawTranscript, hasSlides: false, photoIdByIndex: {} };
+  }
+
+  const segments: TranscriptSegment[] = parsedSegments.data;
+  const transcript = interleaveSlides(
+    segments,
+    slides.map((s) => ({ index: s.index, offsetSeconds: s.offsetSeconds, slideText: s.slideText ?? undefined }))
+  );
+  const photoIdByIndex = Object.fromEntries(slides.map((s) => [s.index, s.photoId]));
+  return { transcript, hasSlides: true, photoIdByIndex };
+}
+
 /** The prompt text for the "Copy prompt for Claude" fallback — same prompt the real Gemini call
  * uses, so pasting Claude's reply back in produces the same shape of notes (PLAN.md Phase 10 task 6). */
 export async function getLectureNotesPrompt(lectureId: string): Promise<ActionResult<{ prompt: string }>> {
@@ -29,10 +59,11 @@ export async function getLectureNotesPrompt(lectureId: string): Promise<ActionRe
   const supabase = await createClient();
   const { lecture, course } = await getLectureWithCourse(supabase, parsedId.data);
   if (!lecture) return { error: "Lecture not found." };
-  const transcript = lecture.transcript || lecture.transcript_live;
-  if (!transcript) return { error: "This lecture doesn't have a transcript yet." };
+  const rawTranscript = lecture.transcript || lecture.transcript_live;
+  if (!rawTranscript) return { error: "This lecture doesn't have a transcript yet." };
 
-  return { prompt: buildLectureNotesPrompt(transcript, course?.name ?? null) };
+  const { transcript, hasSlides } = await buildTranscriptForNotes(lecture.id, rawTranscript, lecture.transcript_segments);
+  return { prompt: buildLectureNotesPrompt(transcript, course?.name ?? null, hasSlides) };
 }
 
 const createFromMarkdownSchema = z.object({
@@ -91,8 +122,12 @@ export async function createNoteFromMarkdown(input: {
   const { lecture } = await getLectureWithCourse(supabase, parsed.data.lectureId);
   if (!lecture) return { error: "Lecture not found." };
 
-  const { body, suggestions } = parseLectureNotes(parsed.data.markdown);
-  if (!body) return { error: "Those notes look empty." };
+  const { body: rawBody, suggestions } = parseLectureNotes(parsed.data.markdown);
+  if (!rawBody) return { error: "Those notes look empty." };
+
+  const slides = await getLectureSlideMarkers(lecture.id);
+  const photoIdByIndex = Object.fromEntries(slides.map((s) => [s.index, s.photoId]));
+  const body = insertSlideImages(rawBody, photoIdByIndex);
 
   let folderId: string | null = null;
   try {
@@ -139,12 +174,14 @@ export async function generateLectureNotes(
   const supabase = await createClient();
   const { lecture, course } = await getLectureWithCourse(supabase, parsedId.data);
   if (!lecture) return { error: "Lecture not found." };
-  const transcript = lecture.transcript || lecture.transcript_live;
-  if (!transcript) return { error: "This lecture doesn't have a transcript yet." };
+  const rawTranscript = lecture.transcript || lecture.transcript_live;
+  if (!rawTranscript) return { error: "This lecture doesn't have a transcript yet." };
+
+  const { transcript, hasSlides } = await buildTranscriptForNotes(lecture.id, rawTranscript, lecture.transcript_segments);
 
   let markdown: string;
   try {
-    markdown = await provider.generateLectureNotes({ transcript, courseName: course?.name ?? null });
+    markdown = await provider.generateLectureNotes({ transcript, courseName: course?.name ?? null, hasSlides });
   } catch (err) {
     if (err instanceof RateLimitError) return { error: err.message, rateLimited: true };
     return { error: err instanceof Error ? err.message : "Could not generate notes." };
