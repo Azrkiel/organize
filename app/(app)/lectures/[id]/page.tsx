@@ -2,9 +2,11 @@ import { notFound } from "next/navigation";
 import { LectureDetail } from "@/components/lectures/lecture-detail";
 import { SlideGallery } from "@/components/lectures/slide-gallery";
 import { LectureTimeline } from "@/components/lectures/lecture-timeline";
+import { LectureTopicsPanel } from "@/components/lectures/lecture-topics-panel";
 import { createClient } from "@/lib/supabase/server";
 import { getLecture } from "@/lib/server/lectures";
 import { getLecturePhotos } from "@/lib/server/lecture-photos";
+import { getLectureTopicsData } from "@/lib/server/topics";
 import { parseTranscriptSegments } from "@/lib/interleave";
 
 export default async function LecturePage({ params }: { params: Promise<{ id: string }> }) {
@@ -14,7 +16,7 @@ export default async function LecturePage({ params }: { params: Promise<{ id: st
 
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  const [{ data: course }, { data: settings }, photos] = await Promise.all([
+  const [{ data: course }, { data: settings }, photos, topicsData] = await Promise.all([
     lecture.course_id
       ? supabase.from("courses").select("id, name, color").eq("id", lecture.course_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -22,6 +24,7 @@ export default async function LecturePage({ params }: { params: Promise<{ id: st
       ? supabase.from("settings").select("whisper_model_size").eq("user_id", auth.user.id).maybeSingle()
       : Promise.resolve({ data: null }),
     getLecturePhotos(id),
+    getLectureTopicsData(lecture),
   ]);
 
   const timelinePhotos = photos
@@ -36,6 +39,7 @@ export default async function LecturePage({ params }: { params: Promise<{ id: st
         defaultModelSize={(settings?.whisper_model_size as "tiny" | "base" | "small") ?? "base"}
         geminiConfigured={Boolean(process.env.GEMINI_API_KEY)}
       />
+      {topicsData && <LectureTopicsPanel lectureId={id} data={topicsData} />}
       <LectureTimeline segments={parseTranscriptSegments(lecture.transcript_segments)} photos={timelinePhotos} />
       {auth.user && <SlideGallery lectureId={id} userId={auth.user.id} lectureTitle={lecture.title} initialPhotos={photos} />}
     </div>

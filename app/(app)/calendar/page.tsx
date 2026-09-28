@@ -1,5 +1,6 @@
 import { getCalendarItems } from "@/lib/server/calendar/view-data";
 import { CalendarView } from "@/components/calendar/calendar-view";
+import { createClient } from "@/lib/supabase/server";
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -32,12 +33,16 @@ export default async function CalendarPage({
     to.setUTCDate(to.getUTCDate() + 9);
   }
 
-  const items = await getCalendarItems({ from, to });
+  const supabase = await createClient();
+  const [items, { data: courses }] = await Promise.all([
+    getCalendarItems({ from, to }),
+    supabase.from("courses").select("id, name").eq("archived", false).order("position"),
+  ]);
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
-      <CalendarView view={view} anchorDate={toDateOnly(anchor)} items={items} />
+      <CalendarView view={view} anchorDate={toDateOnly(anchor)} items={items} courses={courses ?? []} />
     </div>
   );
 }

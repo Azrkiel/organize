@@ -20,7 +20,10 @@ function remindersFor(kind: EventRow["kind"]): CalendarReminder[] {
 function toCalendarInput(event: EventRow): CalendarEventInput {
   // Most of our events (task deadlines) have no natural duration — give them 30 minutes so
   // they render as a normal timed block instead of a zero-length calendar entry.
-  const endsAt = event.ends_at ?? new Date(new Date(event.starts_at).getTime() + 30 * 60_000).toISOString();
+  // All-day events (stored at noon UTC, see lib/syllabus.ts's allDayStartsAt) end a day later:
+  // Google's all-day end date is exclusive, so an end on the same date is rejected as empty.
+  const durationMs = event.all_day ? 24 * 60 * 60_000 : 30 * 60_000;
+  const endsAt = event.ends_at ?? new Date(new Date(event.starts_at).getTime() + durationMs).toISOString();
   return {
     title: event.title,
     startsAt: event.starts_at,

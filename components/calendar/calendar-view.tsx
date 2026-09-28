@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   addDays,
@@ -16,7 +16,9 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { buttonVariants } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { EventDialog } from "@/components/calendar/event-dialog";
 import { cn } from "@/lib/utils";
 import type { CalendarItem } from "@/lib/server/calendar/view-data";
 
@@ -31,11 +33,15 @@ export function CalendarView({
   view,
   anchorDate,
   items,
+  courses,
 }: {
   view: "month" | "week";
   anchorDate: string; // yyyy-MM-dd
   items: CalendarItem[];
+  courses: { id: string; name: string }[];
 }) {
+  // undefined = closed, null = adding a new event, an item = editing that event.
+  const [editing, setEditing] = useState<CalendarItem | null | undefined>(undefined);
   // Date-only strings parse to local midnight with parseISO (unlike `new Date(str)`, which
   // treats them as UTC) — matters here since the grid is built from local calendar days.
   const anchor = parseISO(anchorDate);
@@ -64,9 +70,7 @@ export function CalendarView({
   }, [items]);
 
   const title =
-    view === "week"
-      ? `${format(days[0], "MMM d")} – ${format(days[6], "MMM d, yyyy")}`
-      : format(anchor, "MMMM yyyy");
+    view === "week" ? `${format(days[0], "MMM d")} – ${format(days[6], "MMM d, yyyy")}` : format(anchor, "MMMM yyyy");
 
   return (
     <div className="space-y-3">
@@ -92,6 +96,9 @@ export function CalendarView({
           <h2 className="ml-2 text-sm font-medium">{title}</h2>
         </div>
         <div className="flex gap-1">
+          <Button size="sm" onClick={() => setEditing(null)}>
+            <Plus className="size-4" /> Add event
+          </Button>
           <Link
             href={navHref("month", anchor)}
             className={cn(buttonVariants({ variant: view === "month" ? "secondary" : "outline", size: "sm" }))}
@@ -123,46 +130,62 @@ export function CalendarView({
               className={cn(
                 "min-h-24 bg-background p-1.5",
                 view === "week" && "min-h-40",
-                dimmed && "bg-muted/30 text-muted-foreground"
+                dimmed && "bg-muted/30 text-muted-foreground",
               )}
             >
               <div
                 className={cn(
                   "mb-1 inline-flex size-5 items-center justify-center rounded-full text-[0.7rem]",
-                  isToday(day) && "bg-primary font-medium text-primary-foreground"
+                  isToday(day) && "bg-primary font-medium text-primary-foreground",
                 )}
               >
                 {format(day, "d")}
               </div>
               <div className="space-y-0.5">
-                {dayItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className={cn(
-                      "truncate rounded px-1 py-0.5 text-[0.7rem] leading-tight",
-                      item.source === "local"
-                        ? "bg-muted"
-                        : "border border-dashed border-muted-foreground/40 text-muted-foreground"
-                    )}
-                    title={`${item.title}${item.allDay ? "" : ` — ${format(new Date(item.startsAt), "h:mm a")}`}`}
-                  >
-                    {item.courseColor && (
-                      <span
-                        className="mr-1 inline-block size-1.5 shrink-0 rounded-full align-middle"
-                        style={{ backgroundColor: item.courseColor }}
-                      />
-                    )}
-                    {!item.allDay && (
-                      <span className="text-muted-foreground">{format(new Date(item.startsAt), "h:mm a")} </span>
-                    )}
-                    {item.title}
-                  </div>
-                ))}
+                {dayItems.map((item) => {
+                  // Standalone local events are editable here; task deadlines follow their task, and
+                  // pulled Google/Outlook events are read-only.
+                  const editable = item.source === "local" && !item.taskId;
+                  const Tag = editable ? "button" : "div";
+                  return (
+                    <Tag
+                      key={item.id}
+                      {...(editable ? { type: "button" as const, onClick: () => setEditing(item) } : {})}
+                      className={cn(
+                        "block w-full truncate rounded px-1 py-0.5 text-left text-[0.7rem] leading-tight",
+                        item.source === "local"
+                          ? "bg-muted"
+                          : "border border-dashed border-muted-foreground/40 text-muted-foreground",
+                        editable && "hover:bg-accent",
+                      )}
+                      title={`${item.title}${item.allDay ? "" : ` — ${format(new Date(item.startsAt), "h:mm a")}`}`}
+                    >
+                      {item.courseColor && (
+                        <span
+                          className="mr-1 inline-block size-1.5 shrink-0 rounded-full align-middle"
+                          style={{ backgroundColor: item.courseColor }}
+                        />
+                      )}
+                      {!item.allDay && (
+                        <span className="text-muted-foreground">{format(new Date(item.startsAt), "h:mm a")} </span>
+                      )}
+                      {item.title}
+                    </Tag>
+                  );
+                })}
               </div>
             </div>
           );
         })}
       </div>
+
+      <EventDialog
+        open={editing !== undefined}
+        onOpenChange={(open) => !open && setEditing(undefined)}
+        item={editing ?? null}
+        defaultDate={isSameMonth(new Date(), anchor) || view === "week" ? format(new Date(), "yyyy-MM-dd") : anchorDate}
+        courses={courses}
+      />
     </div>
   );
 }

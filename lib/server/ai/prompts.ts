@@ -40,3 +40,33 @@ ${transcript}
 export function buildSlideTextPrompt(): string {
   return `Transcribe all text visible in this lecture slide photo. Write any equations in LaTeX (inline as $...$, chemistry with \\ce{...}). For a diagram, chart, or figure with little or no text, briefly describe what it shows in one sentence instead of transcribing nothing. Output only the transcription/description — no preamble, no commentary.`;
 }
+
+/** The syllabus-parsing prompt (PLAN.md Phase 13 task 2). Shared by the real Gemini call and the
+ * no-key "Copy prompt" fallback; the reply's shape is validated by `parsedSyllabusSchema`
+ * (lib/syllabus.ts), which also tolerates a ```json fence around it. */
+export function buildSyllabusPrompt(rawText: string, courseName: string | null, year: number): string {
+  return `Extract the structure of this course syllabus${courseName ? ` for "${courseName}"` : ""} as JSON.
+
+Reply with ONLY a JSON object (no commentary) of exactly this shape:
+{
+  "course_name": string | null,
+  "instructor": string | null,
+  "schedule": [{ "week": number | null, "date": "YYYY-MM-DD" | null, "topics": [string], "readings": [string] }],
+  "assessments": [{ "title": string, "kind": "exam" | "quiz" | "assignment" | "project", "date": "YYYY-MM-DD" | null, "weight": number | null, "covers_weeks": [number] | null }],
+  "grading": [{ "component": string, "weight": number }],
+  "policies_summary": string | null
+}
+
+Rules:
+- One "schedule" entry per week or class meeting listed. "topics" are short topic names (a few words each, e.g. "Chemical equilibrium"), not full sentences. "date" is that week's first class date if given.
+- Dates without a year are in ${year} (or ${year + 1} if the term clearly wraps into the next year). If no specific date is given, use null — never invent one.
+- "weight" is a percentage of the final grade (e.g. 25 for 25%), or null if not stated.
+- Include every exam, quiz, assignment, and project that has its own due date or grade weight. Midterms and finals are "exam".
+- "policies_summary": 2-3 sentences covering attendance, late work, and anything else notable. null if none.
+- Only use information actually in the syllabus.
+
+Syllabus:
+"""
+${rawText}
+"""`;
+}

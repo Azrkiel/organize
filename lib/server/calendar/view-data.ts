@@ -16,6 +16,11 @@ export type CalendarItem = {
   /** "local" = lives in our `events` table (may also be synced out). "google"/"microsoft" = pulled
    * straight from that calendar, read-only, and not one of ours (no matching external id on file). */
   source: "local" | CalendarProvider;
+  /** Local events only (null for pulled ones): what the edit dialog needs. Task-linked deadlines
+   * (taskId set) are edited through their task instead, so the calendar leaves them read-only. */
+  kind: string | null;
+  taskId: string | null;
+  endsAtRaw: string | null;
 };
 
 /**
@@ -58,6 +63,9 @@ export async function getCalendarItems(range: { from: Date; to: Date }): Promise
     courseId: e.course_id,
     courseColor: e.course_id ? (colorByCourse.get(e.course_id) ?? null) : null,
     source: "local",
+    kind: e.kind,
+    taskId: e.task_id,
+    endsAtRaw: e.ends_at,
   }));
 
   // Unlike the per-provider pulls below, this itself can throw — e.g. SUPABASE_SERVICE_ROLE_KEY
@@ -85,6 +93,9 @@ export async function getCalendarItems(range: { from: Date; to: Date }): Promise
           courseId: null,
           courseColor: null,
           source: provider,
+          kind: null,
+          taskId: null,
+          endsAtRaw: null,
         });
       }
     } catch (err) {
